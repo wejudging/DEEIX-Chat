@@ -168,14 +168,14 @@ export function NavUser({
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center">
-        <div className="mb-1 flex min-w-0 items-center gap-1 rounded-lg bg-sidebar-accent/45 p-1 transition-colors hover:bg-sidebar-accent/70 group-data-[collapsible=icon]:mb-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+        <div className="relative mb-1 flex min-w-0 items-center rounded-lg bg-sidebar-accent/45 p-1 transition-colors hover:bg-sidebar-accent/70 group-data-[collapsible=icon]:mb-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
           <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 id="sidebar-user-menu-trigger"
                 type="button"
                 size="lg"
-                className="h-11 min-w-0 flex-1 bg-transparent p-1.5 transition-[background-color,color,width,height,padding] data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-visible"
+                className="h-11 w-full min-w-0 bg-transparent py-1.5 pl-1.5 pr-24 transition-[background-color,color,width,height,padding] data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:p-1.5"
                 aria-label={user.name}
               >
                 <Avatar className="size-7 shrink-0 rounded-full">
@@ -276,7 +276,7 @@ export function NavUser({
               asChild
               size="xs"
               variant="outline"
-              className="mr-1 h-7 rounded-full bg-background px-2.5 text-[11px] group-data-[collapsible=icon]:hidden"
+              className="absolute right-2 h-7 rounded-full bg-background px-2.5 text-[11px] group-data-[collapsible=icon]:hidden"
             >
               <Link href="/setting/subscription">
                 {hasPaidSubscription ? <CreditCard className="size-3" /> : <Sparkles className="size-3" />}
