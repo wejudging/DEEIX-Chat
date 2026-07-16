@@ -945,6 +945,7 @@ export function useChatMessageSubmit({
                 ? {
                     title: t("generationInterrupted"),
                     message: terminalErrorMessage || completedErrorMessage || t("retryLater"),
+                    errorCode: completed.assistantMessage.errorCode || terminalStreamError?.errorCode,
                     details: terminalStreamError?.debug,
                   }
                 : undefined,
@@ -1018,6 +1019,7 @@ export function useChatMessageSubmit({
         const errorMessage = resolveErrorMessage(error, t("retryLater"));
         const errorDetails = resolveErrorDetails(error);
         const errorSummary = resolveErrorSummary(error, t("retryLater"));
+        const errorCode = error instanceof ApiError ? error.errorCode : undefined;
         failedGenerationRunsRef?.current.add(clientRunID);
         shouldKeepConversationLayout = true;
         if (resetComposer && restoreDraftOnFailure) {
@@ -1032,10 +1034,12 @@ export function useChatMessageSubmit({
           assistantActivityLabel: undefined,
           assistantProcessTrace: readLiveUpstreamThinkTrace(clientRunID) ?? current.assistantProcessTrace,
           assistantStatus: "error",
+          assistantErrorCode: errorCode,
           assistantErrorMessage: errorMessage,
           assistantInlineAlert: {
             title: t("generationInterrupted"),
             message: errorMessage,
+            errorCode,
             details: errorDetails,
           },
         }));

@@ -110,6 +110,7 @@ export type ChatMessageProcessTrace = {
 export type ChatInlineAlert = {
   title: string;
   message: string;
+  errorCode?: string;
   details?: UpstreamDebugInfo;
 };
 

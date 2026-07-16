@@ -181,6 +181,12 @@
     "copyFailedDescription": "请稍后重试。",
     "generationInterrupted": "生成中断",
     "streamInterrupted": "生成连接已中断，请重试本条消息。",
+    "insufficientBalance": {
+      "title": "余额不足",
+      "description": "充值后可按量使用，或订阅套餐获得每月额度，继续使用付费模型。",
+      "topUp": "立即充值",
+      "subscribe": "查看订阅"
+    },
     "imageRunning": "正在生成图片",
     "contextCompressed": "上下文已自动压缩",
     "scrollToBottom": "回到底部",

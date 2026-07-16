@@ -181,6 +181,12 @@
     "copyFailedDescription": "Please try again later.",
     "generationInterrupted": "Generation interrupted",
     "streamInterrupted": "The generation connection was interrupted. Retry this message.",
+    "insufficientBalance": {
+      "title": "Insufficient balance",
+      "description": "Top up for pay-as-you-go access, or subscribe for a monthly allowance to continue using paid models.",
+      "topUp": "Top up now",
+      "subscribe": "View plans"
+    },
     "imageRunning": "Generating image",
     "contextCompressed": "Context was automatically compressed",
     "scrollToBottom": "Scroll to bottom",

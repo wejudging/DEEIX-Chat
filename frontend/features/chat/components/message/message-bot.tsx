@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, CircleAlert, Film } from "lucide-react";
+import Link from "next/link";
+import { Banknote, ChevronDown, CircleAlert, CreditCard, Film } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { AssistantMessageMeta } from "@/features/chat/components/message/message-meta";
@@ -427,6 +428,59 @@ export function ChatMessageBot({
 }
 
 export function ChatInlineAlertCard({
+  alert,
+  className,
+}: {
+  alert: ChatInlineAlert;
+  className?: string;
+}) {
+  if (alert.errorCode?.trim() === "billing.insufficient_funds") {
+    return <InsufficientBalanceAlert className={className} />;
+  }
+
+  return <GenericChatInlineAlertCard alert={alert} className={className} />;
+}
+
+function InsufficientBalanceAlert({ className }: { className?: string }) {
+  const t = useTranslations("chat.messages");
+  return (
+    <section
+      role="alert"
+      className={cn(
+        "min-w-0 max-w-full rounded-md border border-border/70 bg-muted/30 p-4",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-foreground text-background">
+          <Banknote className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">{t("insufficientBalance.title")}</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            {t("insufficientBalance.description")}
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Button asChild size="sm" className="w-full sm:w-auto">
+              <Link href="/setting/subscription?action=topup">
+                <Banknote className="size-3.5" />
+                {t("insufficientBalance.topUp")}
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+              <Link href="/setting/subscription?action=plans">
+                <CreditCard className="size-3.5" />
+                {t("insufficientBalance.subscribe")}
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GenericChatInlineAlertCard({
   alert,
   className,
 }: {

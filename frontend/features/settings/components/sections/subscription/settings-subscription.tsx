@@ -111,6 +111,7 @@ export function SettingsSubscription() {
   const [selectedPaymentProvider, setSelectedPaymentProvider] = React.useState<PaymentProvider>("stripe");
   const [selectedEPayType, setSelectedEPayType] = React.useState("alipay");
   const [topUpDialogOpen, setTopUpDialogOpen] = React.useState(false);
+  const initialBillingActionHandledRef = React.useRef(false);
   const billingMode: BillingMode = billingConfig?.mode ?? "self";
   const billingDisplay = React.useMemo<BillingDisplayOptions>(
     () => ({
@@ -205,6 +206,22 @@ export function SettingsSubscription() {
       mounted = false;
     };
   }, [accessToken, resolveErrorMessage, t, user]);
+
+  React.useEffect(() => {
+    if (billingLoading || initialBillingActionHandledRef.current) return;
+    initialBillingActionHandledRef.current = true;
+    const url = new URL(window.location.href);
+    const action = url.searchParams.get("action");
+    if (action === "topup") {
+      setTopUpDialogOpen(true);
+    } else if (action === "plans") {
+      setPricingDialogOpen(true);
+    }
+    if (action === "topup" || action === "plans") {
+      url.searchParams.delete("action");
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, [billingLoading]);
 
   const loadUsageLogs = React.useCallback(async (page: number, pageSize: number, query: string, status: string, sort: string) => {
     setUsageLoading(true);

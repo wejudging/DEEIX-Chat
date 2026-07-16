@@ -225,6 +225,7 @@ export function mapServerMessage(
       msg.inlineAlert = {
         title: labels.generationInterrupted,
         message: resolveAssistantErrorMessage(item, labels, details),
+        errorCode: item.errorCode,
         details,
       };
     }
