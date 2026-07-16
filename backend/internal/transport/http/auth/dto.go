@@ -329,6 +329,10 @@ type UserResponse struct {
 	SubscriptionPlanName    string                                `json:"subscriptionPlanName"`
 	SubscriptionStatus      string                                `json:"subscriptionStatus"`
 	SubscriptionExpiresAt   *time.Time                            `json:"subscriptionExpiresAt"`
+	BillingAccountCurrency  string                                `json:"billingAccountCurrency"`
+	BillingBalanceNanousd   int64                                 `json:"billingBalanceNanousd"`
+	BillingBalanceUSD       float64                               `json:"billingBalanceUSD"`
+	BillingAccountStatus    string                                `json:"billingAccountStatus"`
 	IdentityProviders       []UserIdentityProviderSummaryResponse `json:"identityProviders"`
 }
 
@@ -540,6 +544,10 @@ func toUserResponse(v userview.UserView) UserResponse {
 		SubscriptionPlanName:    v.SubscriptionPlanName,
 		SubscriptionStatus:      v.SubscriptionStatus,
 		SubscriptionExpiresAt:   v.SubscriptionExpiresAt,
+		BillingAccountCurrency:  v.BillingAccountCurrency,
+		BillingBalanceNanousd:   v.BillingBalanceNanousd,
+		BillingBalanceUSD:       float64(v.BillingBalanceNanousd) / 1_000_000_000,
+		BillingAccountStatus:    v.BillingAccountStatus,
 		IdentityProviders:       toUserIdentityProviderSummaryResponses(v.IdentityProviders),
 	}
 }
