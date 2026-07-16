@@ -457,6 +457,7 @@
     "title": "Subscription",
     "actions": {
       "cancel": "Cancel",
+      "close": "Close",
       "processing": "Processing"
     },
     "interval": {
@@ -465,13 +466,19 @@
       "month": "month"
     },
     "currentSubscription": {
-      "title": "Current subscription",
+      "title": "Subscription plan",
       "none": "No subscription",
+      "nonePaid": "No paid subscription",
       "empty": "No subscription plan is available.",
-      "subscribe": "Subscribe"
+      "subscribe": "Subscribe",
+      "viewPlans": "View plans",
+      "manage": "Manage subscription",
+      "paygDescription": "You are currently billed by usage. Subscribe to receive included monthly credit."
     },
     "periodUsage": {
       "title": "Plan usage",
+      "paygTitle": "Usage this month",
+      "paygSource": "Deducted from usage balance",
       "currentPeriod": "Current billing period",
       "used": "Used {value}",
       "total": "Total {value}"
@@ -489,9 +496,14 @@
       "credit": "{credit} credit"
     },
     "usageBilling": {
-      "title": "Usage billing",
-      "balance": "Account balance {value}",
+      "title": "Pay as you go",
+      "balance": "Balance {value}",
+      "description": "No monthly fee, pay only for what you use",
       "topUp": "Top up"
+    },
+    "deduction": {
+      "payg": "Without a subscription, charges are deducted directly from your usage balance.",
+      "subscription": "Included plan credit is used first; additional usage is then deducted from your balance."
     },
     "selfMode": {
       "title": "Billing mode",

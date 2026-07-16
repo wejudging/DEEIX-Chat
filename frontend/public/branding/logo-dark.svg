@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="2400"
+     height="754"
+     viewBox="-9 -5 212.84 66.83"
+     preserveAspectRatio="xMidYMid meet"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">HOHAI logo</title>
+  <desc id="desc">A white geometric HOHAI wordmark on a black rounded background.</desc>
+  <defs>
+    <g id="stripe-treatment" shape-rendering="geometricPrecision">
+      <rect x="-2" y="-2" width="58" height="61" fill="#ffffff"/>
+      <path d="M-20 66.8 66.8-20" fill="none" stroke="#000000" stroke-width="17.1"/>
+      <g fill="none" stroke="#ffffff" stroke-width="1.55">
+        <path d="M-20 56.3 56.3-20"/>
+        <path d="M-20 61.8 61.8-20"/>
+        <path d="M-20 67.3 67.3-20"/>
+        <path d="M-20 72.8 72.8-20"/>
+        <path d="M-20 78.3 78.3-20"/>
+      </g>
+    </g>
+    <clipPath id="clip-h-1"><path d="M.55 0h13.13v21.84h12.64V0h13.13v56.83H26.32V34.62H13.68v22.21H.55Z"/></clipPath>
+    <clipPath id="clip-o"><path clip-rule="evenodd" fill-rule="evenodd" d="M25.805 0C8.7 0 .55 10.68.55 28.415S8.7 56.83 25.805 56.83 51.06 46.15 51.06 28.415 42.91 0 25.805 0Zm0 10.04c8.38 0 12.125 6.16 12.125 18.375S34.185 46.79 25.805 46.79 13.68 40.63 13.68 28.415 17.425 10.04 25.805 10.04Z"/></clipPath>
+    <clipPath id="clip-h-2"><path d="M.55 0h13.13v21.84h12.64V0h13.13v56.83H26.32V34.62H13.68v22.21H.55Z"/></clipPath>
+    <clipPath id="clip-a"><path clip-rule="evenodd" fill-rule="evenodd" d="M19 0h11l19 56.83H35.2l-3.6-12.03H17.4l-3.6 12.03H0Zm5.5 16.2-4.55 18.55h9.1Z"/></clipPath>
+    <g id="glyph-i" fill="#ffffff">
+      <path d="M13.68 0H.55v23.12L13.68 9.99V0ZM0 42.898l13.13-13.13 1.09 1.088L1.087 43.987ZM0 38.528l13.13-13.131 1.096 1.096-13.13 13.131ZM0 34.158l13.13-13.131 1.096 1.096-13.13 13.13ZM-.001 29.788 13.13 16.657l1.096 1.096-13.131 13.13ZM-.001 25.418 13.13 12.287l1.096 1.096-13.131 13.13Z"/>
+      <path d="M.55 46.3v9.98h13.13V33.16L.55 46.3Z"/>
+    </g>
+  </defs>
+  <rect x="-2" y="-1.5" width="198.84" height="59.83" rx="5.5" fill="#000000"/>
+  <g aria-label="HOHAI">
+    <g clip-path="url(#clip-h-1)"><use xlink:href="#stripe-treatment"/></g>
+    <g transform="translate(40)"><g clip-path="url(#clip-o)"><use xlink:href="#stripe-treatment"/></g></g>
+    <g transform="translate(91.61)"><g clip-path="url(#clip-h-2)"><use xlink:href="#stripe-treatment"/></g></g>
+    <g transform="translate(131.61)"><g clip-path="url(#clip-a)"><use xlink:href="#stripe-treatment"/></g></g>
+    <g transform="translate(180.61)"><use xlink:href="#glyph-i" transform="scale(1 1.00977)"/></g>
+  </g>
+</svg>

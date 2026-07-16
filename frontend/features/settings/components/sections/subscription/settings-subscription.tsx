@@ -17,7 +17,6 @@ import {
   listBillingMonthlyUsage,
   listBillingPlans,
   listBillingUsage,
-  redeemBillingCode,
   subscribeBillingPlan,
 } from "@/shared/api/billing";
 import type {
@@ -43,7 +42,7 @@ import {
   normalizeBillingDisplayCurrency,
   type BillingDisplayOptions,
 } from "@/shared/lib/billing-display";
-import { RedemptionDialog, TopUpDialog } from "./subscription-billing-dialogs";
+import { TopUpDialog } from "./subscription-billing-dialogs";
 import { SubscriptionSummary } from "./subscription-summary";
 import { SubscriptionUsageLog } from "./subscription-usage-log";
 import type { UsageTrendView } from "./subscription-trend";
@@ -112,9 +111,6 @@ export function SettingsSubscription() {
   const [selectedPaymentProvider, setSelectedPaymentProvider] = React.useState<PaymentProvider>("stripe");
   const [selectedEPayType, setSelectedEPayType] = React.useState("alipay");
   const [topUpDialogOpen, setTopUpDialogOpen] = React.useState(false);
-  const [redemptionDialogOpen, setRedemptionDialogOpen] = React.useState(false);
-  const [redemptionCode, setRedemptionCode] = React.useState("");
-  const [redemptionLoading, setRedemptionLoading] = React.useState(false);
   const billingMode: BillingMode = billingConfig?.mode ?? "self";
   const billingDisplay = React.useMemo<BillingDisplayOptions>(
     () => ({
@@ -313,26 +309,6 @@ export function SettingsSubscription() {
     }
   }, [accessToken, resolveErrorMessage, selectedEPayType, selectedPaymentProvider, t, topUpAmount]);
 
-  const handleRedeemCode = React.useCallback(async () => {
-    const code = redemptionCode.trim();
-    if (!code) {
-      toast.error(t("toasts.invalidRedemptionCode"));
-      return;
-    }
-    setRedemptionLoading(true);
-    try {
-      const data = await redeemBillingCode(accessToken, { code });
-      setBillingOverview(data.overview);
-      setRedemptionDialogOpen(false);
-      setRedemptionCode("");
-      toast.success(t("toasts.redemptionSucceeded"));
-    } catch (error) {
-      toast.error(t("toasts.redemptionFailed"), { description: resolveErrorMessage(error, t("toasts.retryLater")) });
-    } finally {
-      setRedemptionLoading(false);
-    }
-  }, [accessToken, redemptionCode, resolveErrorMessage, t]);
-
   const subscriptionEntitlements = React.useMemo(
     () => billingOverview?.subscriptionEntitlements ?? [],
     [billingOverview?.subscriptionEntitlements],
@@ -407,7 +383,6 @@ export function SettingsSubscription() {
       <SubscriptionSummary
         billingMode={billingMode}
         billingLoading={billingLoading}
-        redemptionLoading={redemptionLoading}
         topUpLoading={topUpLoading}
         paymentDisabled={paymentDisabled}
         billingPlans={billingPlans}
@@ -437,7 +412,6 @@ export function SettingsSubscription() {
         periodUsed={periodUsed}
         periodPercent={periodPercent}
         billingDisplay={billingDisplay}
-        onOpenRedemptionDialog={() => setRedemptionDialogOpen(true)}
         onOpenTopUpDialog={() => setTopUpDialogOpen(true)}
         onPricingDialogOpenChange={setPricingDialogOpen}
         onPaymentDialogOpenChange={setPaymentDialogOpen}
@@ -507,16 +481,6 @@ export function SettingsSubscription() {
         onPaymentProviderChange={setSelectedPaymentProvider}
         onEPayTypeChange={setSelectedEPayType}
         onSubmit={() => void handleTopUp()}
-      />
-
-      <RedemptionDialog
-        open={redemptionDialogOpen}
-        onOpenChange={setRedemptionDialogOpen}
-        code={redemptionCode}
-        billingLoading={billingLoading}
-        redemptionLoading={redemptionLoading}
-        onCodeChange={setRedemptionCode}
-        onSubmit={() => void handleRedeemCode()}
       />
     </SettingsPage>
   );

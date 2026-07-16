@@ -457,6 +457,7 @@
     "title": "订阅",
     "actions": {
       "cancel": "取消",
+      "close": "关闭",
       "processing": "处理中"
     },
     "interval": {
@@ -465,13 +466,19 @@
       "month": "月"
     },
     "currentSubscription": {
-      "title": "当前订阅",
+      "title": "订阅套餐",
       "none": "未订阅",
+      "nonePaid": "未订阅付费套餐",
       "empty": "当前没有可用订阅方案",
-      "subscribe": "订阅"
+      "subscribe": "订阅",
+      "viewPlans": "查看套餐",
+      "manage": "管理订阅",
+      "paygDescription": "当前按实际用量计费，订阅后可获得每月包含额度。"
     },
     "periodUsage": {
       "title": "套餐使用情况",
+      "paygTitle": "本月按量使用",
+      "paygSource": "从按量余额扣除",
       "currentPeriod": "当前计费周期",
       "used": "已使用 {value}",
       "total": "总额度 {value}"
@@ -489,9 +496,14 @@
       "credit": "{credit} 额度"
     },
     "usageBilling": {
-      "title": "按量付费",
-      "balance": "账户余额 {value}",
+      "title": "按量计费",
+      "balance": "余额 {value}",
+      "description": "无固定月费，用多少付多少",
       "topUp": "充值"
+    },
+    "deduction": {
+      "payg": "未订阅套餐时，费用直接从按量余额扣除。",
+      "subscription": "先扣套餐包含额度；额度用完后，再从按量余额扣除。"
     },
     "selfMode": {
       "title": "计费模式",
