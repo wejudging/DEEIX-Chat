@@ -1132,7 +1132,6 @@ export function AppChatArea() {
     selectedSkills,
     defaultToolIDs,
     queuedMessages,
-    htmlVisualPromptEnabled: htmlVisualPrompt.enabled,
     maxSelectedTools: mcpMaxSelectedTools,
     toolsLoading,
     options: effectiveOptions,
@@ -1147,7 +1146,6 @@ export function AppChatArea() {
     maxSelectedSkills: mcpMaxSelectedTools,
     onSelectedSkillsChange,
     onDefaultToolsChange: onDefaultToolIDsChange,
-    onHTMLVisualPromptChange: htmlVisualPrompt.setEnabled,
     onOptionsChange: setModelOptions,
     onOptionsReset: resetModelOptions,
     onOptionsDefaultRestore: restoreBackendDefaultModelOptions,
@@ -1185,7 +1183,7 @@ export function AppChatArea() {
               <NewChatBillingNotice
                 balanceLabel={billingBalanceLabel}
                 onDismiss={() => setNewChatBillingNoticeDismissed(true)}
-                onUpgrade={() => router.push("/setting/subscription?action=plans")}
+                onUpgrade={() => router.push("/setting/subscription")}
               />
             ) : undefined}
             contentWidthClassName={chatContentWidthClassName}

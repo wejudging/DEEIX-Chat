@@ -59,7 +59,7 @@
     "settings": "Settings",
     "announcements": "Announcements",
     "language": "Language",
-    "upgradePlan": "Top up or subscribe",
+    "upgradePlan": "Subscription",
     "freePlan": "Free plan",
     "paidPlan": "Paid plan",
     "accountSummary": "{plan} · Balance {balance}",

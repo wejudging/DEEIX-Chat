@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { AudioLines } from "@/components/animate-ui/icons/audio-lines";
-import { Blocks } from "@/components/animate-ui/icons/blocks";
 import { Pause } from "@/components/animate-ui/icons/pause";
 import { Send } from "@/components/animate-ui/icons/send";
 import { Link as LinkIcon } from "@/components/animate-ui/icons/link";
@@ -99,7 +98,6 @@ type ChatInputProps = {
   selectedSkills: SkillSummaryDTO[];
   defaultToolIDs: number[];
   queuedMessages: QueuedComposerMessage[];
-  htmlVisualPromptEnabled: boolean;
   maxSelectedTools: number;
   maxSelectedSkills: number;
   toolsLoading: boolean;
@@ -115,7 +113,6 @@ type ChatInputProps = {
   onSelectedToolsChange: (toolIDs: number[]) => void;
   onSelectedSkillsChange: (skills: SkillSummaryDTO[]) => void;
   onDefaultToolsChange: (toolIDs: number[]) => void | Promise<void>;
-  onHTMLVisualPromptChange: (enabled: boolean) => void;
   onOptionsChange: React.Dispatch<React.SetStateAction<ConversationOptions>>;
   onOptionsReset: (defaults?: ConversationOptions) => void;
   onOptionsDefaultRestore: () => Promise<ConversationOptions | null>;
@@ -239,7 +236,6 @@ function ChatInputComponent({
   selectedSkills,
   defaultToolIDs,
   queuedMessages,
-  htmlVisualPromptEnabled,
   maxSelectedTools,
   maxSelectedSkills,
   toolsLoading,
@@ -255,7 +251,6 @@ function ChatInputComponent({
   onSelectedToolsChange,
   onSelectedSkillsChange,
   onDefaultToolsChange,
-  onHTMLVisualPromptChange,
   onOptionsChange,
   onOptionsReset,
   onOptionsDefaultRestore,
@@ -272,7 +267,6 @@ function ChatInputComponent({
   const tChat = useTranslations("chat");
   const tComposer = useTranslations("chat.composer");
   const tFileStatus = useTranslations("files.status");
-  const [isBlocksHovered, setIsBlocksHovered] = React.useState(false);
   const [isVoiceHovered, setIsVoiceHovered] = React.useState(false);
   const [toolsMenuHovered, setToolsMenuHovered] = React.useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = React.useState(false);
@@ -365,7 +359,6 @@ function ChatInputComponent({
   const ComposerModeIcon = composerModeIndicator?.icon;
   const modelOptionPolicyDisabled = modelOptionPolicy?.mode?.trim() === "disabled";
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;
-  const showHTMLVisualPromptButton = !isMediaMode;
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
   const showSelectedSkills = selectedSkills.length > 0 && !isMediaMode;
   const {
@@ -879,38 +872,6 @@ function ChatInputComponent({
                 />
               ) : null}
 
-              {showHTMLVisualPromptButton ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InputGroupButton
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className={cn(
-                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
-                        htmlVisualPromptEnabled && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
-                      )}
-                      disabled={loading || uploading}
-                      aria-label={tComposer("htmlVisualPrompt")}
-                      aria-pressed={htmlVisualPromptEnabled}
-                      onClick={() => onHTMLVisualPromptChange(!htmlVisualPromptEnabled)}
-                      onMouseEnter={() => setIsBlocksHovered(true)}
-                      onMouseLeave={() => setIsBlocksHovered(false)}
-                    >
-                      <Blocks
-                        size={20}
-                        strokeWidth={1.4}
-                        animate={htmlVisualPromptEnabled ? "default" : isBlocksHovered ? "default" : undefined}
-                      />
-                    </InputGroupButton>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-72 text-xs leading-5">
-                    {htmlVisualPromptEnabled
-                      ? tComposer("htmlVisualPromptEnabled")
-                      : tComposer("htmlVisualPromptDisabled")}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
             </div>
 
             <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-hidden sm:gap-1.5">
