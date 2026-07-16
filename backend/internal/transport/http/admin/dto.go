@@ -287,6 +287,58 @@ type UsageLogResponse struct {
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
+// UsageStatisticsMetricsResponse 用量统计指标响应。
+type UsageStatisticsMetricsResponse struct {
+	RecordCount      int64   `json:"recordCount"`
+	InputTokens      int64   `json:"inputTokens"`
+	CacheReadTokens  int64   `json:"cacheReadTokens"`
+	CacheWriteTokens int64   `json:"cacheWriteTokens"`
+	OutputTokens     int64   `json:"outputTokens"`
+	ReasoningTokens  int64   `json:"reasoningTokens"`
+	TotalTokens      int64   `json:"totalTokens"`
+	CallCount        int64   `json:"callCount"`
+	AvgLatencyMS     int64   `json:"avgLatencyMS"`
+	BilledNanousd    int64   `json:"billedNanousd"`
+	BilledUSD        float64 `json:"billedUSD"`
+}
+
+// UsageStatisticsTrendResponse 用量趋势点响应。
+type UsageStatisticsTrendResponse struct {
+	PeriodStart time.Time `json:"periodStart"`
+	UsageStatisticsMetricsResponse
+}
+
+// UsageStatisticsModelRankResponse 模型排名响应。
+type UsageStatisticsModelRankResponse struct {
+	PlatformModelName string `json:"platformModelName"`
+	UsageStatisticsMetricsResponse
+	Trend []UsageStatisticsTrendResponse `json:"trend"`
+}
+
+// UsageStatisticsUserRankResponse 用户排名响应。
+type UsageStatisticsUserRankResponse struct {
+	UserID          uint   `json:"userID"`
+	Username        string `json:"username"`
+	UserDisplayName string `json:"userDisplayName"`
+	UserLabel       string `json:"userLabel"`
+	UsageStatisticsMetricsResponse
+	Trend []UsageStatisticsTrendResponse `json:"trend"`
+}
+
+// UsageStatisticsResponse 管理员用量统计响应。
+type UsageStatisticsResponse struct {
+	Section string `json:"section"`
+	Range   struct {
+		StartDate   string `json:"startDate"`
+		EndDate     string `json:"endDate"`
+		Granularity string `json:"granularity"`
+	} `json:"range"`
+	Totals    UsageStatisticsMetricsResponse     `json:"totals"`
+	Trend     []UsageStatisticsTrendResponse     `json:"trend"`
+	TopModels []UsageStatisticsModelRankResponse `json:"topModels"`
+	TopUsers  []UsageStatisticsUserRankResponse  `json:"topUsers"`
+}
+
 // PaymentOrderResponse 支付订单记录响应。
 type PaymentOrderResponse struct {
 	ID                 uint       `json:"id"`
@@ -549,6 +601,12 @@ type UsageLogListResponseDoc struct {
 	} `json:"data"`
 }
 
+// UsageStatisticsResponseDoc 管理员用量统计响应。
+type UsageStatisticsResponseDoc struct {
+	ErrorMsg string                  `json:"errorMsg"`
+	Data     UsageStatisticsResponse `json:"data"`
+}
+
 // PaymentOrderListResponseDoc 支付订单分页响应。
 type PaymentOrderListResponseDoc struct {
 	ErrorMsg string `json:"errorMsg"`
@@ -738,6 +796,73 @@ func toUsageLogResponse(item domainbilling.UsageLedger, label appadmin.UserLabel
 		CreatedAt:           item.CreatedAt,
 		UpdatedAt:           item.UpdatedAt,
 	}
+}
+
+func toUsageStatisticsMetricsResponse(item domainbilling.UsageStatisticsMetrics) UsageStatisticsMetricsResponse {
+	totalTokens := item.InputTokens + item.CacheReadTokens + item.CacheWriteTokens + item.OutputTokens + item.ReasoningTokens
+	return UsageStatisticsMetricsResponse{
+		RecordCount:      item.RecordCount,
+		InputTokens:      item.InputTokens,
+		CacheReadTokens:  item.CacheReadTokens,
+		CacheWriteTokens: item.CacheWriteTokens,
+		OutputTokens:     item.OutputTokens,
+		ReasoningTokens:  item.ReasoningTokens,
+		TotalTokens:      totalTokens,
+		CallCount:        item.CallCount,
+		AvgLatencyMS:     item.AvgLatencyMS,
+		BilledNanousd:    item.BilledNanousd,
+		BilledUSD:        float64(item.BilledNanousd) / 1_000_000_000,
+	}
+}
+
+func toUsageStatisticsTrendResponses(items []domainbilling.UsageStatisticsTrendPoint) []UsageStatisticsTrendResponse {
+	result := make([]UsageStatisticsTrendResponse, 0, len(items))
+	for _, point := range items {
+		result = append(result, UsageStatisticsTrendResponse{
+			PeriodStart:                    point.PeriodStart,
+			UsageStatisticsMetricsResponse: toUsageStatisticsMetricsResponse(point.Metrics),
+		})
+	}
+	return result
+}
+
+func toUsageStatisticsResponse(
+	item domainbilling.UsageStatistics,
+	startDate time.Time,
+	endDate time.Time,
+	section string,
+	userLabels map[uint]appadmin.UserLabel,
+) UsageStatisticsResponse {
+	result := UsageStatisticsResponse{
+		Section:   section,
+		Totals:    toUsageStatisticsMetricsResponse(item.Totals),
+		Trend:     make([]UsageStatisticsTrendResponse, 0, len(item.Trend)),
+		TopModels: make([]UsageStatisticsModelRankResponse, 0, len(item.TopModels)),
+		TopUsers:  make([]UsageStatisticsUserRankResponse, 0, len(item.TopUsers)),
+	}
+	result.Range.StartDate = startDate.Format("2006-01-02")
+	result.Range.EndDate = endDate.Format("2006-01-02")
+	result.Range.Granularity = item.Granularity
+	result.Trend = toUsageStatisticsTrendResponses(item.Trend)
+	for _, model := range item.TopModels {
+		result.TopModels = append(result.TopModels, UsageStatisticsModelRankResponse{
+			PlatformModelName:              model.PlatformModelName,
+			UsageStatisticsMetricsResponse: toUsageStatisticsMetricsResponse(model.Metrics),
+			Trend:                          toUsageStatisticsTrendResponses(model.Trend),
+		})
+	}
+	for _, rankedUser := range item.TopUsers {
+		label := userLabels[rankedUser.UserID]
+		result.TopUsers = append(result.TopUsers, UsageStatisticsUserRankResponse{
+			UserID:                         rankedUser.UserID,
+			Username:                       label.Username,
+			UserDisplayName:                label.DisplayName,
+			UserLabel:                      label.Label,
+			UsageStatisticsMetricsResponse: toUsageStatisticsMetricsResponse(rankedUser.Metrics),
+			Trend:                          toUsageStatisticsTrendResponses(rankedUser.Trend),
+		})
+	}
+	return result
 }
 
 func toPaymentOrderResponse(item domainbilling.PaymentOrder, label appadmin.UserLabel) PaymentOrderResponse {

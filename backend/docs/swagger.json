@@ -580,6 +580,48 @@
                 }
             }
         },
+        "/admin/billing/official-pricing/openrouter": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "从 storage 缓存读取 OpenRouter 模型定价；缓存不存在、过期或 refresh=true 时由后端刷新。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-billing"
+                ],
+                "summary": "管理员获取 OpenRouter 官方模型定价",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "强制刷新缓存",
+                        "name": "refresh",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_billing.OpenRouterOfficialPricingResponseDoc"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_billing.ErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/billing/plans/{id}": {
             "patch": {
                 "security": [
@@ -4914,6 +4956,108 @@
                 }
             }
         },
+        "/admin/usage-statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "管理员按日期、统计对象、平台模型和计费范围查看全局费用、Token、调用次数及排名；用户与权限组筛选互斥",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "管理员查询全局用量统计",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "开始日期(YYYY-MM-DD)，默认近30天",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束日期(YYYY-MM-DD，包含当日)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "权限组ID，与 user_id 互斥",
+                        "name": "permission_group_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "平台模型名",
+                        "name": "platform_model_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "计费范围：all/free/billable",
+                        "name": "billing_scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "返回范围：all/models/users",
+                        "name": "section",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模型排名指标：cost/tokens/calls",
+                        "name": "model_rank_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户排名指标：cost/tokens/calls",
+                        "name": "user_rank_by",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsResponseDoc"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_admin.ErrorDoc"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_admin.ErrorDoc"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_admin.ErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/user-auth-events": {
             "get": {
                 "security": [
@@ -7224,6 +7368,37 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/internal_transport_http_conversation.ConversationDefaultModelCandidateResponseDoc"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_transport_http_conversation.ErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
+        "/conversations/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "流式导出当前用户全部会话及消息为 NDJSON 文件",
+                "produces": [
+                    "application/x-ndjson"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "导出当前用户全部对话",
+                "responses": {
+                    "200": {
+                        "description": "NDJSON stream",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "500": {
@@ -11451,6 +11626,242 @@
                 }
             }
         },
+        "internal_transport_http_admin.UsageStatisticsMetricsResponse": {
+            "type": "object",
+            "properties": {
+                "avgLatencyMS": {
+                    "type": "integer"
+                },
+                "billedNanousd": {
+                    "type": "integer"
+                },
+                "billedUSD": {
+                    "type": "number"
+                },
+                "cacheReadTokens": {
+                    "type": "integer"
+                },
+                "cacheWriteTokens": {
+                    "type": "integer"
+                },
+                "callCount": {
+                    "type": "integer"
+                },
+                "inputTokens": {
+                    "type": "integer"
+                },
+                "outputTokens": {
+                    "type": "integer"
+                },
+                "reasoningTokens": {
+                    "type": "integer"
+                },
+                "recordCount": {
+                    "type": "integer"
+                },
+                "totalTokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_transport_http_admin.UsageStatisticsModelRankResponse": {
+            "type": "object",
+            "properties": {
+                "avgLatencyMS": {
+                    "type": "integer"
+                },
+                "billedNanousd": {
+                    "type": "integer"
+                },
+                "billedUSD": {
+                    "type": "number"
+                },
+                "cacheReadTokens": {
+                    "type": "integer"
+                },
+                "cacheWriteTokens": {
+                    "type": "integer"
+                },
+                "callCount": {
+                    "type": "integer"
+                },
+                "inputTokens": {
+                    "type": "integer"
+                },
+                "outputTokens": {
+                    "type": "integer"
+                },
+                "platformModelName": {
+                    "type": "string"
+                },
+                "reasoningTokens": {
+                    "type": "integer"
+                },
+                "recordCount": {
+                    "type": "integer"
+                },
+                "totalTokens": {
+                    "type": "integer"
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsTrendResponse"
+                    }
+                }
+            }
+        },
+        "internal_transport_http_admin.UsageStatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "range": {
+                    "type": "object",
+                    "properties": {
+                        "endDate": {
+                            "type": "string"
+                        },
+                        "granularity": {
+                            "type": "string"
+                        },
+                        "startDate": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "section": {
+                    "type": "string"
+                },
+                "topModels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsModelRankResponse"
+                    }
+                },
+                "topUsers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsUserRankResponse"
+                    }
+                },
+                "totals": {
+                    "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsMetricsResponse"
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsTrendResponse"
+                    }
+                }
+            }
+        },
+        "internal_transport_http_admin.UsageStatisticsResponseDoc": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsResponse"
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_transport_http_admin.UsageStatisticsTrendResponse": {
+            "type": "object",
+            "properties": {
+                "avgLatencyMS": {
+                    "type": "integer"
+                },
+                "billedNanousd": {
+                    "type": "integer"
+                },
+                "billedUSD": {
+                    "type": "number"
+                },
+                "cacheReadTokens": {
+                    "type": "integer"
+                },
+                "cacheWriteTokens": {
+                    "type": "integer"
+                },
+                "callCount": {
+                    "type": "integer"
+                },
+                "inputTokens": {
+                    "type": "integer"
+                },
+                "outputTokens": {
+                    "type": "integer"
+                },
+                "periodStart": {
+                    "type": "string"
+                },
+                "reasoningTokens": {
+                    "type": "integer"
+                },
+                "recordCount": {
+                    "type": "integer"
+                },
+                "totalTokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_transport_http_admin.UsageStatisticsUserRankResponse": {
+            "type": "object",
+            "properties": {
+                "avgLatencyMS": {
+                    "type": "integer"
+                },
+                "billedNanousd": {
+                    "type": "integer"
+                },
+                "billedUSD": {
+                    "type": "number"
+                },
+                "cacheReadTokens": {
+                    "type": "integer"
+                },
+                "cacheWriteTokens": {
+                    "type": "integer"
+                },
+                "callCount": {
+                    "type": "integer"
+                },
+                "inputTokens": {
+                    "type": "integer"
+                },
+                "outputTokens": {
+                    "type": "integer"
+                },
+                "reasoningTokens": {
+                    "type": "integer"
+                },
+                "recordCount": {
+                    "type": "integer"
+                },
+                "totalTokens": {
+                    "type": "integer"
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_transport_http_admin.UsageStatisticsTrendResponse"
+                    }
+                },
+                "userDisplayName": {
+                    "type": "string"
+                },
+                "userID": {
+                    "type": "integer"
+                },
+                "userLabel": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_transport_http_admin.UserAuthEventListResponseDoc": {
             "type": "object",
             "properties": {
@@ -13400,6 +13811,71 @@
                 }
             }
         },
+        "internal_transport_http_billing.OpenRouterOfficialPricingDataResponse": {
+            "type": "object",
+            "properties": {
+                "cached": {
+                    "type": "boolean"
+                },
+                "fetchedAt": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_transport_http_billing.OpenRouterOfficialPricingItemResponse"
+                    }
+                },
+                "stale": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "internal_transport_http_billing.OpenRouterOfficialPricingItemResponse": {
+            "type": "object",
+            "properties": {
+                "canonicalSlug": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pricing": {
+                    "$ref": "#/definitions/internal_transport_http_billing.OpenRouterOfficialPricingUnitPricingResponse"
+                }
+            }
+        },
+        "internal_transport_http_billing.OpenRouterOfficialPricingResponseDoc": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_transport_http_billing.OpenRouterOfficialPricingDataResponse"
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_transport_http_billing.OpenRouterOfficialPricingUnitPricingResponse": {
+            "type": "object",
+            "properties": {
+                "completion": {
+                    "type": "string"
+                },
+                "inputCacheRead": {
+                    "type": "string"
+                },
+                "inputCacheWrite": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_transport_http_billing.PatchRedemptionCodeRequestDoc": {
             "type": "object",
             "properties": {
@@ -14751,7 +15227,8 @@
                     "enum": [
                         "chat",
                         "image_generation",
-                        "image_edit"
+                        "image_edit",
+                        "video_generation"
                     ]
                 }
             }
