@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { SpinnerLabel } from "@/components/ui/spinner";
 import type { UserDTO } from "@/shared/api/auth.types";
 import type { BillingOverviewData, BillingSubscriptionEntitlementDTO } from "@/shared/api/billing.types";
@@ -294,35 +293,53 @@ export function SubscriptionSummary({
   return (
     <>
       {billingMode === "period" ? (
-        <section className="space-y-6 px-0.5 md:space-y-7 xl:space-y-8 xl:px-1">
-          <ActionRow
-            title={t("usageBilling.title")}
-            value={t("usageBilling.balance", { value: formatAccountBalance(billingAccount?.balanceUSD ?? 0, billingDisplay) })}
-            description={t("usageBilling.description")}
-            action={
-              <Button type="button" disabled={billingLoading || topUpLoading || paymentDisabled} onClick={onOpenTopUpDialog}>
+        <section className="space-y-5 px-0.5 md:space-y-6 xl:px-1">
+          <div className="grid divide-y divide-border/70 border-y border-border/70 md:grid-cols-2 md:divide-x md:divide-y-0">
+            <div className="flex flex-col justify-between gap-5 py-5 md:min-h-44 md:pr-8">
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  <Banknote className="size-3.5 text-muted-foreground" />
+                  <span>{t("usageBilling.title")}</span>
+                </div>
+                <p className="text-xl font-semibold tabular-nums">
+                  {t("usageBilling.balance", { value: formatAccountBalance(billingAccount?.balanceUSD ?? 0, billingDisplay) })}
+                </p>
+                <p className="text-xs leading-5 text-muted-foreground">{t("usageBilling.description")}</p>
+              </div>
+              <Button
+                type="button"
+                className="w-full sm:w-32"
+                disabled={billingLoading || topUpLoading || paymentDisabled}
+                onClick={onOpenTopUpDialog}
+              >
                 <Banknote className="size-3.5" />
                 {t("usageBilling.topUp")}
               </Button>
-            }
-          />
-
-          <Separator />
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:gap-4">
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs font-medium">{t("currentSubscription.title")}</p>
-              <p className="truncate text-sm font-semibold">{paidCurrentPlan?.name ?? t("currentSubscription.nonePaid")}</p>
-              <p className="text-xs text-muted-foreground">
-                {paidCurrentPlan
-                  ? `${formatPlanPrice(currentPrice, intervalLabels, billingDisplay)} · ${t("plans.features.monthlyCredit", { credit: formatPlanCredit(periodCredit, billingDisplay) })}`
-                  : t("currentSubscription.paygDescription")}
-              </p>
             </div>
-            <Button className="self-start" type="button" disabled={billingLoading || visibleBillingPlans.length === 0} onClick={() => onPricingDialogOpenChange(true)}>
-              <CreditCard className="size-3.5" />
-              {hasPaidSubscription ? t("currentSubscription.manage") : t("currentSubscription.subscribe")}
-            </Button>
+
+            <div className="flex flex-col justify-between gap-5 py-5 md:min-h-44 md:pl-8">
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  <CreditCard className="size-3.5 text-muted-foreground" />
+                  <span>{t("currentSubscription.title")}</span>
+                </div>
+                <p className="truncate text-xl font-semibold">{paidCurrentPlan?.name ?? t("currentSubscription.nonePaid")}</p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {paidCurrentPlan
+                    ? `${formatPlanPrice(currentPrice, intervalLabels, billingDisplay)} · ${t("plans.features.monthlyCredit", { credit: formatPlanCredit(periodCredit, billingDisplay) })}`
+                    : t("currentSubscription.paygDescription")}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="w-full sm:w-32"
+                disabled={billingLoading || visibleBillingPlans.length === 0}
+                onClick={() => onPricingDialogOpenChange(true)}
+              >
+                <CreditCard className="size-3.5" />
+                {hasPaidSubscription ? t("currentSubscription.manage") : t("currentSubscription.subscribe")}
+              </Button>
+            </div>
           </div>
 
           <SubscriptionEntitlementQueue
@@ -332,9 +349,7 @@ export function SubscriptionSummary({
             billingDisplay={billingDisplay}
           />
 
-          <Separator />
-
-          <div className="space-y-3 rounded-md bg-muted/35 p-3 md:space-y-4">
+          <div className="space-y-4 rounded-md bg-muted/35 p-4">
             {hasPaidSubscription ? (
               <>
                 <div className="flex items-start justify-between gap-3 md:gap-4">
@@ -376,7 +391,7 @@ export function SubscriptionSummary({
             )}
           </div>
 
-          <p className="px-1 text-xs text-muted-foreground">
+          <p className="text-center text-xs leading-5 text-muted-foreground">
             {hasPaidSubscription ? t("deduction.subscription") : t("deduction.payg")}
           </p>
         </section>

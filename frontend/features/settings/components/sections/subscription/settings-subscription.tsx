@@ -377,7 +377,7 @@ export function SettingsSubscription() {
   const billingAccount = billingOverview?.account ?? null;
 
   return (
-    <SettingsPage className="space-y-6">
+    <SettingsPage className="space-y-5 md:space-y-6">
       <SettingsSectionHeader title={t("title")} className="px-1" />
 
       <SubscriptionSummary
