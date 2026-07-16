@@ -294,8 +294,8 @@ export function SubscriptionSummary({
     <>
       {billingMode === "period" ? (
         <section className="space-y-5 px-0.5 md:space-y-6 xl:px-1">
-          <div className="grid divide-y divide-border/70 border-y border-border/70 md:grid-cols-2 md:divide-x md:divide-y-0">
-            <div className="flex flex-col justify-between gap-5 py-5 md:min-h-44 md:pr-8">
+          <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+            <div className="flex flex-col justify-between gap-5 rounded-md bg-muted/35 p-4 md:min-h-48 md:p-5">
               <div className="min-w-0 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium">
                   <Banknote className="size-3.5 text-muted-foreground" />
@@ -308,7 +308,7 @@ export function SubscriptionSummary({
               </div>
               <Button
                 type="button"
-                className="w-full sm:w-32"
+                className="w-full"
                 disabled={billingLoading || topUpLoading || paymentDisabled}
                 onClick={onOpenTopUpDialog}
               >
@@ -317,7 +317,7 @@ export function SubscriptionSummary({
               </Button>
             </div>
 
-            <div className="flex flex-col justify-between gap-5 py-5 md:min-h-44 md:pl-8">
+            <div className="flex flex-col justify-between gap-5 rounded-md bg-muted/35 p-4 md:min-h-48 md:p-5">
               <div className="min-w-0 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium">
                   <CreditCard className="size-3.5 text-muted-foreground" />
@@ -332,7 +332,7 @@ export function SubscriptionSummary({
               </div>
               <Button
                 type="button"
-                className="w-full sm:w-32"
+                className="w-full"
                 disabled={billingLoading || visibleBillingPlans.length === 0}
                 onClick={() => onPricingDialogOpenChange(true)}
               >
