@@ -136,10 +136,10 @@ export function resolveDetailValue(value: string | number | null | undefined): s
 
 export function formatBillingBalance(value: number | null | undefined): string {
   if (!Number.isFinite(value ?? NaN) || (value ?? 0) <= 0) {
-    return "$0.000000";
+    return "$0.000";
   }
   return `$${(value ?? 0).toLocaleString("en-US", {
-    minimumFractionDigits: 6,
-    maximumFractionDigits: 6,
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   })}`;
 }

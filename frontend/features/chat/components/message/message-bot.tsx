@@ -447,7 +447,7 @@ function InsufficientBalanceAlert({ className }: { className?: string }) {
     <section
       role="alert"
       className={cn(
-        "min-w-0 max-w-full rounded-md border border-border/70 bg-muted/30 p-4",
+        "w-full min-w-0 rounded-lg border border-border/70 bg-muted/30 p-4",
         className,
       )}
     >
@@ -460,14 +460,14 @@ function InsufficientBalanceAlert({ className }: { className?: string }) {
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             {t("insufficientBalance.description")}
           </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Button asChild size="sm" className="w-full sm:w-auto">
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button asChild size="sm" className="w-full whitespace-nowrap">
               <Link href="/setting/subscription?action=topup">
                 <Banknote className="size-3.5" />
                 {t("insufficientBalance.topUp")}
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button asChild size="sm" variant="outline" className="w-full whitespace-nowrap">
               <Link href="/setting/subscription?action=plans">
                 <CreditCard className="size-3.5" />
                 {t("insufficientBalance.subscribe")}

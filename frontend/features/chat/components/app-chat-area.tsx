@@ -14,6 +14,7 @@ import {
 import { ChatArea, ChatAreaLoadError, ChatAreaSkeleton } from "@/features/chat/components/sections/chat-area";
 import { ChatArtifactWorkspace } from "@/features/chat/components/sections/chat-artifact";
 import { ChatEmptyState } from "@/features/chat/components/sections/chat-empty";
+import { NewChatBillingNotice, PaidModelBillingDialog } from "@/features/chat/components/sections/chat-billing-guide";
 import { useChatSession } from "@/features/chat/context/chat-session-context";
 import { useChatArtifacts } from "@/features/chat/hooks/use-chat-artifacts";
 import { useChatAttachments } from "@/features/chat/hooks/use-chat-attachments";
@@ -52,11 +53,13 @@ import { getConversation } from "@/shared/api/conversation";
 import { listAvailableMCPTools } from "@/shared/api/mcp";
 import { getUserSettings, patchUserSettings } from "@/shared/api/user-settings";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
+import { useAuthSession } from "@/shared/auth/auth-session-context";
 import type { ConversationDTO, ConversationOptions } from "@/shared/api/conversation.types";
 import type { FileObjectDTO } from "@/shared/api/file.types";
 import type { MCPToolDTO } from "@/shared/api/mcp.types";
 import { useTheme } from "@/shared/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { formatBillingDisplayBalanceFromUSD } from "@/shared/lib/billing-display";
 
 const MODEL_OPTIONS_STORAGE_PREFIX = "deeix-chat:chat-model-options:";
 const DEFAULT_MCP_TOOLS_SETTING_KEY = "chat.default_mcp_tool_ids";
@@ -167,6 +170,7 @@ export function AppChatArea() {
   const searchParams = useSearchParams();
   const routeConversationID = searchParams.get("conversation_id")?.trim() || null;
   const routeProjectID = searchParams.get("project_id")?.trim() || null;
+  const { user: sessionUser } = useAuthSession();
   const { newConversationRevision, newConversationProjectID: requestedNewConversationProjectID, requestNewConversation } = useChatSession();
   const [locallyCreatedConversationID, setLocallyCreatedConversationID] = React.useState<string | null>(null);
   const [newConversationOverride, setNewConversationOverride] = React.useState<{
@@ -202,6 +206,20 @@ export function AppChatArea() {
     newConversationOverride && resolvedRouteConversationID === newConversationOverride.ignoredConversationID
       ? null
       : resolvedRouteConversationID;
+  const [newChatBillingNoticeDismissed, setNewChatBillingNoticeDismissed] = React.useState(false);
+  const [blockedPaidModelName, setBlockedPaidModelName] = React.useState("");
+  const previousConversationIDRef = React.useRef<string | null>(conversationID);
+
+  React.useEffect(() => {
+    if (!conversationID && previousConversationIDRef.current) {
+      setNewChatBillingNoticeDismissed(false);
+    }
+    previousConversationIDRef.current = conversationID;
+  }, [conversationID]);
+
+  React.useEffect(() => {
+    setNewChatBillingNoticeDismissed(false);
+  }, [newConversationRevision]);
   const onNewConversationFromLoadError = React.useCallback(() => {
     const projectID = routeProjectID ?? "";
     requestNewConversation({ projectID });
@@ -343,6 +361,25 @@ export function AppChatArea() {
     () => modelOptions.find((item) => item.platformModelName === selectedPlatformModelName) ?? null,
     [modelOptions, selectedPlatformModelName],
   );
+  const subscriptionTier = sessionUser?.subscriptionTier.trim().toLowerCase() || "";
+  const billingUpgradeRequired = Boolean(
+    sessionUser && subscriptionTier === "free" && sessionUser.billingBalanceNanousd <= 0,
+  );
+  const billingBalanceLabel = React.useMemo(
+    () => formatBillingDisplayBalanceFromUSD(sessionUser?.billingBalanceUSD ?? 0, {
+      currency: billingDisplayCurrency,
+      usdToCnyRate: billingDisplayUsdToCnyRate,
+    }),
+    [billingDisplayCurrency, billingDisplayUsdToCnyRate, sessionUser?.billingBalanceUSD],
+  );
+  const handleModelChange = React.useCallback((platformModelName: string) => {
+    const nextModel = modelOptions.find((item) => item.platformModelName === platformModelName);
+    if (billingUpgradeRequired && nextModel?.pricing && !nextModel.pricing.isFree) {
+      setBlockedPaidModelName(nextModel.platformModelName);
+      return;
+    }
+    setSelectedPlatformModelName(platformModelName);
+  }, [billingUpgradeRequired, modelOptions, setSelectedPlatformModelName]);
   const modelOptionPolicyDisabled = modelOptionPolicy?.mode?.trim() === "disabled";
   const refreshModelCatalogForComposer = React.useCallback(async () => {
     await refreshModelCatalog();
@@ -1104,7 +1141,7 @@ export function AppChatArea() {
     modelLoading: modelsLoading,
     dropActive: fileDragActive,
     onDraftChange: setDraft,
-    onModelChange: setSelectedPlatformModelName,
+    onModelChange: handleModelChange,
     onModelCatalogRefresh: refreshModelCatalogForComposer,
     onSelectedToolsChange,
     maxSelectedSkills: mcpMaxSelectedTools,
@@ -1144,6 +1181,13 @@ export function AppChatArea() {
             greetingTitle={activeRouteProject?.name || greetingTitle}
             badgeLabel={activeRouteProject ? t("projectMode") : undefined}
             badgeTooltip={activeRouteProject ? t("projectModeTooltip") : undefined}
+            notice={!conversationID && billingUpgradeRequired && !newChatBillingNoticeDismissed ? (
+              <NewChatBillingNotice
+                balanceLabel={billingBalanceLabel}
+                onDismiss={() => setNewChatBillingNoticeDismissed(true)}
+                onUpgrade={() => router.push("/setting/subscription?action=plans")}
+              />
+            ) : undefined}
             contentWidthClassName={chatContentWidthClassName}
           >
             <ChatInput {...chatInputProps} />
@@ -1183,7 +1227,7 @@ export function AppChatArea() {
                   onEditUserMessage={onEditUserMessage}
                   modelOptions={modelOptions}
                   selectedPlatformModelName={selectedPlatformModelName}
-                  onModelChange={setSelectedPlatformModelName}
+                  onModelChange={handleModelChange}
                   onModelCatalogRefresh={refreshModelCatalogForComposer}
                   onEditImageAttachment={onEditGeneratedImageAttachment}
                   onOpenCodeArtifact={artifactWorkspace.openArtifact}
@@ -1261,6 +1305,22 @@ export function AppChatArea() {
         clipboardSupported={screenshot.clipboardSupported}
         onDownload={screenshot.downloadPreview}
         onCopy={screenshot.copyPreviewToClipboard}
+      />
+
+      <PaidModelBillingDialog
+        open={Boolean(blockedPaidModelName)}
+        modelName={blockedPaidModelName}
+        onOpenChange={(open) => {
+          if (!open) setBlockedPaidModelName("");
+        }}
+        onTopUp={() => {
+          setBlockedPaidModelName("");
+          router.push("/setting/subscription?action=topup");
+        }}
+        onViewPlans={() => {
+          setBlockedPaidModelName("");
+          router.push("/setting/subscription?action=plans");
+        }}
       />
 
       {canOperateConversation ? (

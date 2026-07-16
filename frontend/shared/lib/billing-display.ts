@@ -88,6 +88,13 @@ export function formatBillingDisplayUnitPriceFromUSD(value: number, options: Bil
   });
 }
 
+export function formatBillingDisplayBalanceFromUSD(value: number, options: BillingDisplayOptions): string {
+  return formatBillingDisplayAmountFromUSD(value, options, {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+}
+
 export function formatBillingDisplayPreciseAmountFromUSD(value: number, options: BillingDisplayOptions): string {
   return formatBillingDisplayAmountFromUSD(value, options, {
     minimumFractionDigits: 6,

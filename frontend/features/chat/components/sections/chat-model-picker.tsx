@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, TicketSlash } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -363,7 +363,6 @@ function ChatModelMenuItem({
   onSelect,
   billingDisplay,
   pricingLabels,
-  viewPricingLabel,
   pricingTooltipSide,
   buttonRef,
 }: {
@@ -372,7 +371,6 @@ function ChatModelMenuItem({
   onSelect: () => void;
   billingDisplay: BillingDisplayOptions;
   pricingLabels: React.ComponentProps<typeof ModelPricingTooltipContent>["labels"];
-  viewPricingLabel: string;
   pricingTooltipSide: "right";
   buttonRef?: React.Ref<HTMLButtonElement>;
 }) {
@@ -388,40 +386,31 @@ function ChatModelMenuItem({
   );
   const iconURL = React.useMemo(() => resolveLobeHubIconURL(identity.modelIcon), [identity.modelIcon]);
 
+  const modelButton = (
+    <button
+      ref={buttonRef}
+      type="button"
+      className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-transparent px-2 py-0 text-left text-[11px] font-medium leading-none text-inherit outline-none"
+      onClick={onSelect}
+    >
+      <LobeHubIcon iconUrl={iconURL} label={platformModelName} />
+      <span className="min-w-0 flex-1 truncate leading-4">
+        {platformModelName}
+      </span>
+      <span className="flex size-3 shrink-0 items-center justify-center">
+        {selected ? <Check className="size-3 text-current" strokeWidth={1.7} /> : null}
+      </span>
+    </button>
+  );
+
   return (
     <div
       data-selected={selected}
       className="group flex h-7 items-center rounded-md text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-within:bg-accent focus-within:text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
     >
-      <button
-        ref={buttonRef}
-        type="button"
-        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-transparent py-0 pl-2 pr-1 text-left text-[11px] font-medium leading-none text-inherit outline-none"
-        onClick={onSelect}
-      >
-        <LobeHubIcon iconUrl={iconURL} label={platformModelName} />
-        <span className="min-w-0 flex-1 truncate leading-4">
-          {platformModelName}
-        </span>
-        <span className="flex size-3 shrink-0 items-center justify-center">
-          {selected ? <Check className="size-3 text-current" strokeWidth={1.7} /> : null}
-        </span>
-      </button>
       {model.pricing ? (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:text-current focus-visible:text-current focus-visible:outline-none group-hover:text-current group-focus-within:text-current group-data-[selected=true]:text-current"
-              aria-label={viewPricingLabel}
-            >
-              {model.pricing.isFree ? (
-                <TicketSlash className="size-3.5" strokeWidth={1.8} />
-              ) : (
-                <CircleDollarSign className="size-3.5" strokeWidth={1.8} />
-              )}
-            </button>
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{modelButton}</TooltipTrigger>
           <TooltipContent
             side={pricingTooltipSide}
             align="center"
@@ -437,7 +426,7 @@ function ChatModelMenuItem({
             />
           </TooltipContent>
         </Tooltip>
-      ) : null}
+      ) : modelButton}
     </div>
   );
 }
@@ -750,7 +739,6 @@ export function ChatModelPicker({
                             }}
                             billingDisplay={billingDisplay}
                             pricingLabels={pricingLabels}
-                            viewPricingLabel={t("viewPricing")}
                             pricingTooltipSide="right"
                           />
                         ))}
@@ -813,7 +801,6 @@ export function ChatModelPicker({
                             }}
                             billingDisplay={billingDisplay}
                             pricingLabels={pricingLabels}
-                            viewPricingLabel={t("viewPricing")}
                             pricingTooltipSide="right"
                           />
                         ))}

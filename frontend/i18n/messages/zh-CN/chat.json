@@ -501,6 +501,16 @@
     "callUnit": "次",
     "secondUnit": "秒"
   },
+  "billingGuide": {
+    "newChatStatus": "免费版 · 余额 {balance}",
+    "upgrade": "升级订阅",
+    "dismiss": "关闭订阅提醒",
+    "paidModelTitle": "此模型需要付费额度",
+    "paidModelDescription": "{model} 为付费模型。当前余额为 0 且未订阅付费套餐，请先充值或选择订阅方案。",
+    "topUp": "立即充值",
+    "viewPlans": "查看订阅",
+    "keepFree": "继续使用免费模型"
+  },
   "processTrace": {
     "fileBadges": {
       "directRead": "直读",

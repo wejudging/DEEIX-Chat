@@ -1,11 +1,18 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  Bell,
   Check,
-  ChevronDown,
+  CreditCard,
+  Languages,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -32,13 +39,20 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { SpinnerLabel } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
 import { logout, patchMe } from "@/shared/api/auth";
+import { getBillingConfig } from "@/shared/api/billing";
 import { useAuthSession } from "@/shared/auth/auth-session-context";
 import { clearSessionAndRedirectToLogin } from "@/shared/auth/session";
 import { dispatchUserProfileUpdated } from "@/shared/auth/user-profile-events";
 import { dispatchOpenAnnouncements, getAnnouncementUnread, subscribeAnnouncementUnreadChanged } from "@/shared/events/announcement-events";
 import { useAppLocale } from "@/i18n/app-i18n-provider";
 import { APP_LOCALE_LABELS, APP_LOCALES, type AppLocale } from "@/i18n/config";
+import {
+  formatBillingDisplayBalanceFromUSD,
+  normalizeBillingDisplayCurrency,
+  type BillingDisplayOptions,
+} from "@/shared/lib/billing-display";
 
 export function NavUser({
   user,
@@ -58,10 +72,36 @@ export function NavUser({
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [savingLocale, setSavingLocale] = React.useState<AppLocale | null>(null);
   const [hasUnreadAnnouncement, setHasUnreadAnnouncement] = React.useState(() => getAnnouncementUnread());
+  const [billingDisplay, setBillingDisplay] = React.useState<BillingDisplayOptions>(() => ({
+    currency: normalizeBillingDisplayCurrency(sessionUser?.billingAccountCurrency),
+  }));
   const skipTriggerFocusRef = React.useRef(false);
   const isAdmin = user.role === "admin" || user.role === "superadmin";
+  const subscriptionTier = sessionUser?.subscriptionTier.trim().toLowerCase() || "free";
+  const hasPaidSubscription = subscriptionTier !== "free";
+  const planLabel = hasPaidSubscription
+    ? sessionUser?.subscriptionPlanName.trim() || sessionUser?.subscriptionTier.trim() || t("paidPlan")
+    : t("freePlan");
+  const balanceLabel = formatBillingDisplayBalanceFromUSD(sessionUser?.billingBalanceUSD ?? 0, billingDisplay);
 
   React.useEffect(() => subscribeAnnouncementUnreadChanged(setHasUnreadAnnouncement), []);
+
+  React.useEffect(() => {
+    if (!accessToken) return;
+    let active = true;
+    void getBillingConfig(accessToken)
+      .then(({ config }) => {
+        if (!active) return;
+        setBillingDisplay({
+          currency: normalizeBillingDisplayCurrency(config.displayCurrency),
+          usdToCnyRate: config.usdToCNYRate,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [accessToken]);
 
   const onLogout = React.useCallback(async () => {
     if (loggingOut) {
@@ -128,100 +168,125 @@ export function NavUser({
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center">
-        <DropdownMenu open={open} onOpenChange={setOpen}>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              id="sidebar-user-menu-trigger"
-              type="button"
-              size="lg"
-              className="mb-1 transition-[background-color,color,width,height,padding,margin] data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:mb-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-visible"
-              aria-label={user.name}
-            >
-              <Avatar className="size-7 shrink-0 rounded-full">
-                <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                <AvatarFallback className="rounded-full bg-foreground text-xs font-medium text-background">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="grid min-w-0 flex-1 gap-0.5 overflow-hidden pl-1.5 text-left text-sm leading-tight transition-opacity duration-200 ease-linear group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-medium text-foreground/95">{user.name}</span>
-              </div>
-              <ChevronDown aria-hidden className="ml-auto size-4 stroke-1 transition-opacity duration-200 ease-linear group-data-[collapsible=icon]:hidden" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
-            side="top"
-            align="start"
-            sideOffset={4}
-            onCloseAutoFocus={(event) => {
-              if (!skipTriggerFocusRef.current) {
-                return;
-              }
-              event.preventDefault();
-              skipTriggerFocusRef.current = false;
-              requestAnimationFrame(() => {
-                document.getElementById("sidebar-user-menu-trigger")?.blur();
-              });
-            }}
-          >
-            <DropdownMenuLabel className="px-2 py-2 font-normal text-muted-foreground">
-              <span className="block truncate" title={user.email}>
-                {user.email}
-              </span>
-            </DropdownMenuLabel>
-            <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={navigateFromMenu("/setting/general")}>
-                {t("settings")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={openAnnouncementsFromMenu}>
-                <span className="min-w-0 flex-1 truncate">{t("announcements")}</span>
-                <span className="ml-auto flex size-4 shrink-0 items-center justify-center">
-                  {hasUnreadAnnouncement ? <span aria-hidden="true" className="size-1.5 rounded-full bg-destructive" /> : null}
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="focus:bg-accent/40 data-[state=open]:bg-accent/40">
-                  {t("language")}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="min-w-32 p-1.5">
-                  {APP_LOCALES.map((item) => (
-                    <DropdownMenuItem
-                      key={item}
-                      disabled={savingLocale === item}
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        void onLocaleSelect(item);
-                      }}
-                    >
-                      {APP_LOCALE_LABELS[item]}
-                      {locale === item ? <DropdownMenuItemIcon icon={Check} className="ml-auto" /> : null}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
-                {t("upgradePlan")}
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            {isAdmin ? (
-              <DropdownMenuItem onSelect={navigateFromMenu("/admin")}>
-                {t("admin")}
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem
-              onSelect={(event) => {
+        <div className="mb-1 flex min-w-0 items-center gap-1 rounded-lg bg-sidebar-accent/45 p-1 transition-colors hover:bg-sidebar-accent/70 group-data-[collapsible=icon]:mb-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+          <DropdownMenu open={open} onOpenChange={setOpen}>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                id="sidebar-user-menu-trigger"
+                type="button"
+                size="lg"
+                className="h-11 min-w-0 flex-1 bg-transparent p-1.5 transition-[background-color,color,width,height,padding] data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-visible"
+                aria-label={user.name}
+              >
+                <Avatar className="size-7 shrink-0 rounded-full">
+                  <AvatarImage src={user.avatar || undefined} alt={user.name} />
+                  <AvatarFallback className="rounded-full bg-foreground text-xs font-medium text-background">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="grid min-w-0 flex-1 gap-0.5 overflow-hidden pl-1.5 text-left leading-tight transition-opacity duration-200 ease-linear group-data-[collapsible=icon]:hidden">
+                  <span className="truncate text-sm font-medium text-foreground/95">{user.name}</span>
+                  {sessionUser ? (
+                    <span className="truncate text-[11px] text-muted-foreground">
+                      {t("accountSummary", { plan: planLabel, balance: balanceLabel })}
+                    </span>
+                  ) : null}
+                </div>
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="min-w-56"
+              side="top"
+              align="start"
+              sideOffset={6}
+              onCloseAutoFocus={(event) => {
+                if (!skipTriggerFocusRef.current) {
+                  return;
+                }
                 event.preventDefault();
-                void onLogout();
+                skipTriggerFocusRef.current = false;
+                requestAnimationFrame(() => {
+                  document.getElementById("sidebar-user-menu-trigger")?.blur();
+                });
               }}
-              disabled={loggingOut}
             >
-              {loggingOut ? <SpinnerLabel>{t("loggingOut")}</SpinnerLabel> : t("logout")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuLabel className="px-2 py-2 font-normal text-muted-foreground">
+                <span className="block truncate" title={user.email}>
+                  {user.email}
+                </span>
+              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={navigateFromMenu("/setting/general")}>
+                  <DropdownMenuItemIcon icon={Settings} />
+                  {t("settings")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={openAnnouncementsFromMenu}>
+                  <DropdownMenuItemIcon icon={Bell} />
+                  <span className="min-w-0 flex-1 truncate">{t("announcements")}</span>
+                  <span className="ml-auto flex size-4 shrink-0 items-center justify-center">
+                    {hasUnreadAnnouncement ? <span aria-hidden="true" className="size-1.5 rounded-full bg-destructive" /> : null}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="focus:bg-accent/40 data-[state=open]:bg-accent/40">
+                    <DropdownMenuItemIcon icon={Languages} />
+                    {t("language")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-32 p-1.5">
+                    {APP_LOCALES.map((item) => (
+                      <DropdownMenuItem
+                        key={item}
+                        disabled={savingLocale === item}
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          void onLocaleSelect(item);
+                        }}
+                      >
+                        {APP_LOCALE_LABELS[item]}
+                        {locale === item ? <DropdownMenuItemIcon icon={Check} className="ml-auto" /> : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
+                  <DropdownMenuItemIcon icon={CreditCard} />
+                  {t("upgradePlan")}
+                </DropdownMenuItem>
+                {isAdmin ? (
+                  <DropdownMenuItem onSelect={navigateFromMenu("/admin")}>
+                    <DropdownMenuItemIcon icon={ShieldCheck} />
+                    {t("admin")}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void onLogout();
+                }}
+                disabled={loggingOut}
+              >
+                <DropdownMenuItemIcon icon={LogOut} />
+                {loggingOut ? <SpinnerLabel>{t("loggingOut")}</SpinnerLabel> : t("logout")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {sessionUser ? (
+            <Button
+              asChild
+              size="xs"
+              variant="outline"
+              className="mr-1 h-7 rounded-full bg-background px-2.5 text-[11px] group-data-[collapsible=icon]:hidden"
+            >
+              <Link href="/setting/subscription?action=plans">
+                {hasPaidSubscription ? <CreditCard className="size-3" /> : <Sparkles className="size-3" />}
+                {hasPaidSubscription ? t("managePlan") : t("upgrade")}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </SidebarMenuItem>
     </SidebarMenu>
   );

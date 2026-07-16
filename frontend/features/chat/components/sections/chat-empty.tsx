@@ -11,6 +11,7 @@ type ChatEmptyStateProps = {
   greetingTitle: string;
   badgeLabel?: string;
   badgeTooltip?: string;
+  notice?: React.ReactNode;
   contentWidthClassName?: string;
   children?: React.ReactNode;
 };
@@ -20,7 +21,7 @@ const CHAT_EMPTY_TEXT_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
-export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, contentWidthClassName = "max-w-[1080px]", children }: ChatEmptyStateProps) {
+export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, notice, contentWidthClassName = "max-w-[1080px]", children }: ChatEmptyStateProps) {
   const badge = badgeLabel ? (
     <span className="absolute left-full top-0 ml-1.5">
       <Badge
@@ -34,7 +35,12 @@ export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, conten
   const titleGroupKey = `${greetingTitle}:${badgeLabel ?? ""}`;
 
   return (
-    <div className="flex h-full min-h-0 flex-col items-center justify-center px-3 py-12 text-center md:px-6 md:py-20">
+    <div className="relative flex h-full min-h-0 flex-col items-center justify-center px-3 py-12 text-center md:px-6 md:py-20">
+      {notice ? (
+        <div className="absolute inset-x-3 top-3 z-10 flex justify-center md:top-5">
+          {notice}
+        </div>
+      ) : null}
       <motion.div layout className="relative inline-flex max-w-[calc(100%-4.5rem)] justify-center">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div

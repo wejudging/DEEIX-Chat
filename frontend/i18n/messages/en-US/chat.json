@@ -501,6 +501,16 @@
     "callUnit": "call",
     "secondUnit": "second"
   },
+  "billingGuide": {
+    "newChatStatus": "Free plan · Balance {balance}",
+    "upgrade": "Upgrade plan",
+    "dismiss": "Dismiss subscription reminder",
+    "paidModelTitle": "This model requires paid credit",
+    "paidModelDescription": "{model} is a paid model. Your balance is zero and you do not have a paid subscription. Top up or choose a plan to continue.",
+    "topUp": "Top up now",
+    "viewPlans": "View plans",
+    "keepFree": "Keep using free models"
+  },
   "processTrace": {
     "fileBadges": {
       "directRead": "Direct",

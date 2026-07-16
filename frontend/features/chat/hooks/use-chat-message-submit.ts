@@ -1043,7 +1043,9 @@ export function useChatMessageSubmit({
             details: errorDetails,
           },
         }));
-        toast.error(t("sendFailed"), { description: errorSummary });
+        if (errorCode !== "billing.insufficient_funds") {
+          toast.error(t("sendFailed"), { description: errorSummary });
+        }
         if (targetConversationID) {
           reload();
         }
