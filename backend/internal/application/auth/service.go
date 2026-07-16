@@ -56,6 +56,10 @@ type subscriptionResolver interface {
 		userID uint,
 		now time.Time,
 	) (*billing.UserSubscriptionSnapshot, error)
+	ListBillingAccountSnapshots(
+		ctx context.Context,
+		userIDs []uint,
+	) (map[uint]billing.UserBillingAccountSnapshot, error)
 }
 
 type auditWriter interface {
@@ -491,22 +495,30 @@ func (s *Service) buildUserView(ctx context.Context, item domainuser.User) (user
 	if err != nil {
 		return userview.UserView{}, err
 	}
-	if subscription == nil {
-		view := userview.FromUser(item, nil)
-		s.applyCredentialView(&view, item, credential)
-		if err := s.applyTwoFactorView(ctx, &view); err != nil {
-			return userview.UserView{}, err
+
+	var subscriptionState *userview.SubscriptionState
+	if subscription != nil {
+		subscriptionState = &userview.SubscriptionState{
+			PlanID:    subscription.PlanID,
+			PlanName:  subscription.PlanName,
+			Tier:      subscription.Tier,
+			Status:    subscription.Status,
+			ExpiresAt: subscription.ExpiresAt,
 		}
-		return view, nil
 	}
 
-	view := userview.FromUser(item, &userview.SubscriptionState{
-		PlanID:    subscription.PlanID,
-		PlanName:  subscription.PlanName,
-		Tier:      subscription.Tier,
-		Status:    subscription.Status,
-		ExpiresAt: subscription.ExpiresAt,
-	})
+	view := userview.FromUser(item, subscriptionState)
+	accounts, err := s.subscriptionResolver.ListBillingAccountSnapshots(ctx, []uint{item.ID})
+	if err != nil {
+		return userview.UserView{}, err
+	}
+	if account, ok := accounts[item.ID]; ok {
+		view = userview.WithBillingAccount(view, &userview.BillingAccountState{
+			Currency:       account.Currency,
+			BalanceNanousd: account.BalanceNanousd,
+			Status:         account.Status,
+		})
+	}
 	s.applyCredentialView(&view, item, credential)
 	if err := s.applyTwoFactorView(ctx, &view); err != nil {
 		return userview.UserView{}, err

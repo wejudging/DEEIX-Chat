@@ -168,27 +168,14 @@ export function NavUser({
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center">
-        <div className="mb-1 flex min-w-0 flex-col rounded-lg bg-sidebar-accent/45 p-1 group-data-[collapsible=icon]:mb-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
-          {sessionUser ? (
-            <Button
-              asChild
-              size="sm"
-              variant="ghost"
-              className="h-8 w-full justify-start rounded-md px-2 text-xs group-data-[collapsible=icon]:hidden"
-            >
-              <Link href="/setting/subscription">
-                {hasPaidSubscription ? <CreditCard className="size-3.5" /> : <Sparkles className="size-3.5" />}
-                {hasPaidSubscription ? t("managePlan") : t("upgrade")}
-              </Link>
-            </Button>
-          ) : null}
+        <div className="mb-1 flex min-w-0 items-center gap-1 rounded-lg bg-sidebar-accent/45 p-1 transition-colors hover:bg-sidebar-accent/70 group-data-[collapsible=icon]:mb-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
           <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 id="sidebar-user-menu-trigger"
                 type="button"
                 size="lg"
-                className="h-11 w-full min-w-0 bg-transparent p-1.5 transition-[background-color,color,width,height,padding] data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-visible"
+                className="h-11 min-w-0 flex-1 bg-transparent p-1.5 transition-[background-color,color,width,height,padding] data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-visible"
                 aria-label={user.name}
               >
                 <Avatar className="size-7 shrink-0 rounded-full">
@@ -226,12 +213,6 @@ export function NavUser({
                   {user.email}
                 </span>
               </DropdownMenuLabel>
-              <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
-                  <DropdownMenuItemIcon icon={CreditCard} />
-                  {t("upgradePlan")}
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem onSelect={navigateFromMenu("/setting/general")}>
@@ -266,6 +247,10 @@ export function NavUser({
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+                <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
+                  <DropdownMenuItemIcon icon={CreditCard} />
+                  {t("upgradePlan")}
+                </DropdownMenuItem>
                 {isAdmin ? (
                   <DropdownMenuItem onSelect={navigateFromMenu("/admin")}>
                     <DropdownMenuItemIcon icon={ShieldCheck} />
@@ -286,6 +271,19 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {sessionUser ? (
+            <Button
+              asChild
+              size="xs"
+              variant="outline"
+              className="mr-1 h-7 rounded-full bg-background px-2.5 text-[11px] group-data-[collapsible=icon]:hidden"
+            >
+              <Link href="/setting/subscription">
+                {hasPaidSubscription ? <CreditCard className="size-3" /> : <Sparkles className="size-3" />}
+                {hasPaidSubscription ? t("upgradePlan") : t("upgrade")}
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </SidebarMenuItem>
     </SidebarMenu>

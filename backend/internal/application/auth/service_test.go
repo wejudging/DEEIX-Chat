@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/billing"
 	domainuser "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/user"
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/config"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/repository"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/requestmeta"
 )
@@ -13,6 +15,58 @@ import (
 type validateAccessSessionRepo struct {
 	repository.AuthRepository
 	session *domainuser.Session
+}
+
+type userViewRepoStub struct {
+	repository.AuthRepository
+}
+
+func (r *userViewRepoStub) GetCredentialByUserID(context.Context, uint) (*domainuser.Credential, error) {
+	return nil, repository.ErrNotFound
+}
+
+func (r *userViewRepoStub) GetUserTwoFactorByUserID(context.Context, uint) (*domainuser.UserTwoFactor, error) {
+	return nil, repository.ErrNotFound
+}
+
+type userViewBillingResolverStub struct {
+	account billing.UserBillingAccountSnapshot
+}
+
+func (r userViewBillingResolverStub) GetCurrentSubscriptionSnapshot(context.Context, uint, time.Time) (*billing.UserSubscriptionSnapshot, error) {
+	return nil, nil
+}
+
+func (r userViewBillingResolverStub) ListBillingAccountSnapshots(_ context.Context, userIDs []uint) (map[uint]billing.UserBillingAccountSnapshot, error) {
+	result := make(map[uint]billing.UserBillingAccountSnapshot, len(userIDs))
+	for _, userID := range userIDs {
+		account := r.account
+		account.UserID = userID
+		result[userID] = account
+	}
+	return result, nil
+}
+
+func TestBuildUserViewIncludesBillingAccountWithoutSubscription(t *testing.T) {
+	service := NewService(config.Config{}, &userViewRepoStub{}, nil)
+	service.SetSubscriptionResolver(userViewBillingResolverStub{
+		account: billing.UserBillingAccountSnapshot{
+			Currency:       "USD",
+			BalanceNanousd: 9_052_987_000,
+			Status:         "active",
+		},
+	})
+
+	view, err := service.BuildUserView(context.Background(), domainuser.User{ID: 42})
+	if err != nil {
+		t.Fatalf("build user view: %v", err)
+	}
+	if view.BillingBalanceNanousd != 9_052_987_000 {
+		t.Fatalf("expected billing balance to be included, got %d", view.BillingBalanceNanousd)
+	}
+	if view.BillingAccountCurrency != "USD" || view.BillingAccountStatus != "active" {
+		t.Fatalf("unexpected billing account metadata: currency=%q status=%q", view.BillingAccountCurrency, view.BillingAccountStatus)
+	}
 }
 
 func (r *validateAccessSessionRepo) GetSessionByUserAndSessionID(_ context.Context, userID uint, sessionID string) (*domainuser.Session, error) {
