@@ -28,7 +28,7 @@
 
 ## Verification
 
-<!-- List the commands or checks you ran. For example: cd backend && go test ./..., cd frontend && pnpm lint, cd frontend && pnpm build. -->
+<!-- List the commands or checks you ran. For example: cd backend && go test ./..., cd frontend && pnpm check, cd frontend && pnpm build. -->
 
 - [ ] Not run; reason:
 

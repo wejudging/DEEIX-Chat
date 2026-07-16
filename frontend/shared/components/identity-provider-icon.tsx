@@ -44,7 +44,6 @@ export function IdentityProviderIcon({
   if (iconUrl) {
     return (
       <span aria-hidden="true" className={cn(rootClassName, isDefaultIcon && "text-foreground")}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           alt=""
           className={cn("block size-4 object-contain", invertInDarkMode && "dark:invert", iconClassName)}

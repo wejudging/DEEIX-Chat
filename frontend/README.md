@@ -147,12 +147,14 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080
 
 ```bash
 pnpm dev
+pnpm check
 pnpm lint
+pnpm lint:fix
 pnpm build
 pnpm start
 ```
 
-当前 `package.json` 未配置单独的 `typecheck` 脚本，需要类型检查时使用框架构建或临时执行 TypeScript 检查命令。
+`check` 依次运行 Biome 静态检查和 TypeScript 7 类型检查。规则范围、严重级别和框架例外见 [BIOME.md](./BIOME.md)。
 
 ## 开发约束
 
@@ -170,7 +172,7 @@ pnpm start
 ## 提交前验证
 
 ```bash
-pnpm lint
+pnpm check
 ```
 
 涉及构建、路由、依赖或 Next.js 配置变更时再执行：

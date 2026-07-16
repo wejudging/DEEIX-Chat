@@ -1,0 +1,56 @@
+name: Frontend Quality
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "frontend/**"
+      - "scripts/sync-version.mjs"
+      - "VERSION"
+      - ".github/workflows/frontend-quality.yml"
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "frontend/**"
+      - "scripts/sync-version.mjs"
+      - "VERSION"
+      - ".github/workflows/frontend-quality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Biome and TypeScript
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend checks
+        run: pnpm check

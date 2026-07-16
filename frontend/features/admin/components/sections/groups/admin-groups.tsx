@@ -819,7 +819,9 @@ function GroupEditSheet({
       );
       setModelIDs((current) => {
         const next = new Set(current);
-        rows.forEach((model) => next.add(model.id));
+        rows.forEach((model) => {
+          next.add(model.id);
+        });
         return next;
       });
     } catch (error) {
@@ -843,7 +845,9 @@ function GroupEditSheet({
       );
       setUserIDs((current) => {
         const next = new Set(current);
-        rows.forEach((user) => next.add(user.id));
+        rows.forEach((user) => {
+          next.add(user.id);
+        });
         return next;
       });
     } catch (error) {

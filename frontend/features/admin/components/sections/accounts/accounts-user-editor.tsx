@@ -54,7 +54,6 @@ import { AdminDateTimePicker } from "@/features/admin/components/admin-date-time
 import type { UserDTO } from "@/shared/api/auth.types";
 import type { AdminUserRole, AdminUserStatus } from "@/features/admin/api/admin.types";
 import {
-  COMPACT_COMBOBOX_CLASSNAME,
   USER_STATUS_OPTIONS,
   type CreateUserPayload,
   type EditUserPayload,
