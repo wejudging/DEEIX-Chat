@@ -1,0 +1,10 @@
+branding:
+  title: HOHAI
+  short_name: HOHAI
+  description: HOHAI is a multi-model AI conversation system.
+  logo_url: /branding/logo-light.png
+  favicon_url: /branding/favicon.ico
+  pwa_icon_192_url: /branding/icon-192.png
+  pwa_icon_512_url: /branding/icon-512.png
+  pwa_maskable_icon_512_url: /branding/icon-maskable-512.png
+  apple_touch_icon_180_url: /branding/apple-touch-icon.png

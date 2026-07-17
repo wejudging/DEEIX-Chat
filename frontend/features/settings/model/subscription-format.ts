@@ -289,7 +289,8 @@ export function resolvePlanActionLabel(action: PlanActionKind, labels: PlanActio
 
 export function resolvePlanButtonVariant(action: PlanActionKind): "default" | "outline" | "secondary" {
   if (action === "current") return "secondary";
-  return "outline";
+  if (action === "freeBlocked" || action === "unavailable" || action === "switch") return "outline";
+  return "default";
 }
 
 export function resolvePaymentProviderLabel(provider: string | undefined, fallback: string): string {

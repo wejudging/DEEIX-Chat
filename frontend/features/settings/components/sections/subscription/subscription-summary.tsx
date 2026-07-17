@@ -425,7 +425,7 @@ export function SubscriptionSummary({
           <DialogHeader className="sticky top-0 z-10 flex-row items-center justify-between bg-background pb-2">
             <DialogTitle>{t("plans.title")}</DialogTitle>
             <DialogClose asChild>
-              <Button type="button" variant="outline" className="h-7">{t("actions.close")}</Button>
+              <Button type="button" className="h-7">{t("actions.close")}</Button>
             </DialogClose>
           </DialogHeader>
 
