@@ -397,12 +397,12 @@ function ChatModelMenuItem({
       <span className="min-w-0 flex-1 truncate leading-4">
         {platformModelName}
       </span>
-      {model.pricing && !model.pricing.isFree ? (
-        <CircleDollarSign className="size-3.5 shrink-0 text-muted-foreground/70" strokeWidth={1.8} />
-      ) : null}
       <span className="flex size-3 shrink-0 items-center justify-center">
         {selected ? <Check className="size-3 text-current" strokeWidth={1.7} /> : null}
       </span>
+      {model.pricing && !model.pricing.isFree ? (
+        <CircleDollarSign className="size-3.5 shrink-0 text-muted-foreground/70" strokeWidth={1.8} />
+      ) : null}
     </button>
   );
 
