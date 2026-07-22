@@ -243,6 +243,10 @@ export interface AuthUserIdentityProviderSummaryResponse {
 export interface AuthUserResponse {
   appearancePreferences: string;
   avatarURL: string;
+  billingAccountCurrency: string;
+  billingAccountStatus: string;
+  billingBalanceNanousd: number;
+  billingBalanceUSD: number;
   createdAt: string;
   displayName: string;
   email: string;

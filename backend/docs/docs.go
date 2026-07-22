@@ -12100,6 +12100,10 @@ const docTemplate = `{
             "required": [
                 "appearancePreferences",
                 "avatarURL",
+                "billingAccountCurrency",
+                "billingAccountStatus",
+                "billingBalanceNanousd",
+                "billingBalanceUSD",
                 "createdAt",
                 "displayName",
                 "email",
@@ -12144,6 +12148,18 @@ const docTemplate = `{
                 },
                 "avatarURL": {
                     "type": "string"
+                },
+                "billingAccountCurrency": {
+                    "type": "string"
+                },
+                "billingAccountStatus": {
+                    "type": "string"
+                },
+                "billingBalanceNanousd": {
+                    "type": "integer"
+                },
+                "billingBalanceUSD": {
+                    "type": "number"
                 },
                 "createdAt": {
                     "type": "string"
