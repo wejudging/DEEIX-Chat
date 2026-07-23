@@ -4,53 +4,53 @@
      viewBox="0 0 512 512"
      role="img"
      aria-labelledby="title desc">
-  <title id="title">HOHAI transparent black rounded H icon</title>
+  <title id="title">HOHAI transparent black rounded H</title>
   <desc id="desc">A centered, symmetrical, softly rounded black H with transparent diagonal cutouts and no background.</desc>
 
   <defs>
-    <!-- The mark occupies 68% of the canvas for clear favicon and PWA rendering. -->
     <clipPath id="balanced-rounded-h-clip">
       <path d="
-        M109 82
-        H166
-        Q193 82 193 109
-        V194
-        Q193 211 210 211
-        H302
-        Q319 211 319 194
-        V109
-        Q319 82 346 82
-        H403
-        Q430 82 430 109
-        V403
-        Q430 430 403 430
-        H346
-        Q319 430 319 403
-        V318
-        Q319 301 302 301
-        H210
-        Q193 301 193 318
-        V403
-        Q193 430 166 430
-        H109
-        Q82 430 82 403
-        V109
-        Q82 82 109 82
+        M138 116
+        H183
+        Q205 116 205 138
+        V206
+        Q205 220 219 220
+        H293
+        Q307 220 307 206
+        V138
+        Q307 116 329 116
+        H374
+        Q396 116 396 138
+        V374
+        Q396 396 374 396
+        H329
+        Q307 396 307 374
+        V306
+        Q307 292 293 292
+        H219
+        Q205 292 205 306
+        V374
+        Q205 396 183 396
+        H138
+        Q116 396 116 374
+        V138
+        Q116 116 138 116
         Z"/>
     </clipPath>
 
+    <!-- Black removes the wide diagonal band; white restores five thin H stripes. -->
     <mask id="transparent-stripe-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
       <rect width="512" height="512" fill="#ffffff"/>
-      <path d="M-108 620 620-108"
+      <path d="M-80 592 592-80"
             fill="none"
             stroke="#000000"
-            stroke-width="104"/>
-      <g fill="none" stroke="#ffffff" stroke-width="9.5">
-        <path d="M-108 551 551-108"/>
-        <path d="M-108 586 586-108"/>
-        <path d="M-108 621 621-108"/>
-        <path d="M-108 656 656-108"/>
-        <path d="M-108 691 691-108"/>
+            stroke-width="84"/>
+      <g fill="none" stroke="#ffffff" stroke-width="7.5">
+        <path d="M-80 537 537-80"/>
+        <path d="M-80 565 565-80"/>
+        <path d="M-80 593 593-80"/>
+        <path d="M-80 621 621-80"/>
+        <path d="M-80 649 649-80"/>
       </g>
     </mask>
   </defs>
