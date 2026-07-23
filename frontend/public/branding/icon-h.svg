@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512"
+     height="512"
+     viewBox="0 0 512 512"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">HOHAI transparent black rounded H icon</title>
+  <desc id="desc">A centered, symmetrical, softly rounded black H with transparent diagonal cutouts and no background.</desc>
+
+  <defs>
+    <!-- The mark occupies 68% of the canvas for clear favicon and PWA rendering. -->
+    <clipPath id="balanced-rounded-h-clip">
+      <path d="
+        M109 82
+        H166
+        Q193 82 193 109
+        V194
+        Q193 211 210 211
+        H302
+        Q319 211 319 194
+        V109
+        Q319 82 346 82
+        H403
+        Q430 82 430 109
+        V403
+        Q430 430 403 430
+        H346
+        Q319 430 319 403
+        V318
+        Q319 301 302 301
+        H210
+        Q193 301 193 318
+        V403
+        Q193 430 166 430
+        H109
+        Q82 430 82 403
+        V109
+        Q82 82 109 82
+        Z"/>
+    </clipPath>
+
+    <mask id="transparent-stripe-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#ffffff"/>
+      <path d="M-108 620 620-108"
+            fill="none"
+            stroke="#000000"
+            stroke-width="104"/>
+      <g fill="none" stroke="#ffffff" stroke-width="9.5">
+        <path d="M-108 551 551-108"/>
+        <path d="M-108 586 586-108"/>
+        <path d="M-108 621 621-108"/>
+        <path d="M-108 656 656-108"/>
+        <path d="M-108 691 691-108"/>
+      </g>
+    </mask>
+  </defs>
+
+  <g clip-path="url(#balanced-rounded-h-clip)"
+     mask="url(#transparent-stripe-mask)"
+     shape-rendering="geometricPrecision">
+    <rect width="512" height="512" fill="#000000"/>
+  </g>
+</svg>
