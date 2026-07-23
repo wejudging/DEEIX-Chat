@@ -1,5 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 67.61 72.83">
-  <path fill="#000000" d="M4.585 55.73L14.76 45.555l1.096 1.096L5.681 56.826zM.22 55.741l12.905-12.904 1.096 1.096L1.316 56.837zM.006 51.579l13.18-13.18 1.09 1.088-13.181 13.18zM.006 47.209l13.18-13.18 1.089 1.088-13.18 13.18zM.006 42.839l13.18-13.18 1.089 1.088-13.18 13.18zM37.583 25.875l10.932-10.931 1.09 1.089-10.933 10.931zM37.045 22.05l9.836-9.836 1.096 1.096-9.836 9.836zM36.125 18.6l9.015-9.015 1.09 1.089-9.016 9.015zM34.62 15.742l8.472-8.471L44.18 8.36l-8.471 8.47zM32.565 13.41l8.195-8.195 1.096 1.096-8.195 8.195zM30.075 11.531l7.948-7.948 1.096 1.096-7.948 7.948z"/>
-  <path d="M49.33 16.48l-11.1 11.1v.54a24.67 24.67 0 0 1-1.08 7.57 16.14 16.14 0 0 1-3.11 5.7 13.38 13.38 0 0 1-5 3.59 16.75 16.75 0 0 1-6.68 1.26h-2.79l-10 10h12.84a32.72 32.72 0 0 0 12-2.1 27 27 0 0 0 9.21-5.87 26.38 26.38 0 0 0 5.93-8.93 29.58 29.58 0 0 0 2.1-11.26 29.48 29.48 0 0 0-2.1-11.22z" fill="#000000"/>
-  <path d="M13.68 10h8.73a16.75 16.75 0 0 1 6.68 1.26 13.12 13.12 0 0 1 1.5.75l7.91-7.88a31 31 0 0 0-4.13-2A32.51 32.51 0 0 0 22.41 0H.55v42.09L13.68 29z" fill="#000000"/>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512"
+     height="512"
+     viewBox="0 0 512 512"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">HOHAI balanced rounded H Telegram avatar</title>
+  <desc id="desc">A circular black Telegram avatar with a centered, symmetrical, softly rounded white H and balanced diagonal stripes.</desc>
+
+  <defs>
+    <!--
+      One continuous path keeps both stems and the crossbar mathematically
+      symmetrical. Outer corners use a 22 px radius; inner joins use 14 px.
+    -->
+    <clipPath id="balanced-rounded-h-clip">
+      <path d="
+        M138 116
+        H183
+        Q205 116 205 138
+        V206
+        Q205 220 219 220
+        H293
+        Q307 220 307 206
+        V138
+        Q307 116 329 116
+        H374
+        Q396 116 396 138
+        V374
+        Q396 396 374 396
+        H329
+        Q307 396 307 374
+        V306
+        Q307 292 293 292
+        H219
+        Q205 292 205 306
+        V374
+        Q205 396 183 396
+        H138
+        Q116 396 116 374
+        V138
+        Q116 116 138 116
+        Z"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="256" cy="256" r="256" fill="#000000"/>
+
+  <g clip-path="url(#balanced-rounded-h-clip)" shape-rendering="geometricPrecision">
+    <rect width="512" height="512" fill="#ffffff"/>
+
+    <!-- The main diagonal passes through the exact center of the H and canvas. -->
+    <path d="M-80 592 592-80"
+          fill="none"
+          stroke="#000000"
+          stroke-width="84"/>
+
+    <g fill="none" stroke="#ffffff" stroke-width="7.5">
+      <path d="M-80 537 537-80"/>
+      <path d="M-80 565 565-80"/>
+      <path d="M-80 593 593-80"/>
+      <path d="M-80 621 621-80"/>
+      <path d="M-80 649 649-80"/>
+    </g>
+  </g>
 </svg>
