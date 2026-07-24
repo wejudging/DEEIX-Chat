@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Wallet,
 } from "lucide-react";
 
 import {
@@ -185,8 +186,13 @@ export function NavUser({
                 <div className="grid min-w-0 flex-1 gap-0.5 overflow-hidden pl-1.5 text-left leading-tight transition-opacity duration-200 ease-linear group-data-[collapsible=icon]:hidden">
                   <span className="truncate text-sm font-medium text-foreground/95">{user.name}</span>
                   {sessionUser ? (
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {t("accountSummary", { plan: planLabel, balance: balanceLabel })}
+                    <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                      <span className="truncate">{planLabel}</span>
+                      <span aria-hidden="true" className="shrink-0">·</span>
+                      <span className="inline-flex min-w-0 shrink-0 items-center gap-1" title={t("balanceLabel")}>
+                        <Wallet aria-hidden="true" className="size-3 shrink-0" />
+                        <span className="truncate">{balanceLabel}</span>
+                      </span>
                     </span>
                   ) : null}
                 </div>
