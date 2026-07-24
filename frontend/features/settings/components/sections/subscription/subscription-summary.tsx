@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Banknote, Check, CreditCard } from "lucide-react";
+import { BadgeCheck, Banknote, Check, CreditCard } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import {
   formatPlanCredit,
   formatPlanPrice,
   formatProviderPaymentAmountFromUSD,
-  formatShortDate,
   isCurrentBillingPlan,
   isFreePlan,
   planRank,
@@ -148,11 +147,13 @@ function SubscriptionEntitlementQueue({
   });
 
   return (
-    <div className="px-1 text-xs text-muted-foreground">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="space-y-2 px-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2">
+        <BadgeCheck aria-hidden="true" className="size-3.5 text-muted-foreground" />
         <span className="font-medium text-foreground">{labels.title}</span>
-        <span>{labels.count(items.length)}</span>
-        <span className="text-muted-foreground/50">/</span>
+        <span className="ml-auto">{labels.count(items.length)}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {orderedItems.map((item, index) => {
           const start = formatMediumDate(item.currentPeriodStartAt || item.startAt, locale);
           const end = item.currentPeriodEndAt ? formatMediumDate(item.currentPeriodEndAt, locale) : "-";
@@ -180,7 +181,6 @@ type SubscriptionSummaryProps = {
   topUpLoading: boolean;
   paymentDisabled: boolean;
   billingPlans: BillingPlanDTO[];
-  billingOverview: BillingOverviewData["overview"] | null;
   currentPlan: BillingPlanDTO | null;
   currentPrice: BillingPlanPriceDTO | null;
   viewer: UserDTO | null;
@@ -221,7 +221,6 @@ export function SubscriptionSummary({
   topUpLoading,
   paymentDisabled,
   billingPlans,
-  billingOverview,
   currentPlan,
   currentPrice,
   viewer,
@@ -293,9 +292,9 @@ export function SubscriptionSummary({
   return (
     <>
       {billingMode === "period" ? (
-        <section className="space-y-5 px-0.5 md:space-y-6 xl:px-1">
-          <div className="grid gap-3 md:grid-cols-2 md:gap-4">
-            <div className="flex flex-col justify-between gap-5 rounded-md bg-muted/35 p-4 md:min-h-48 md:p-5">
+        <section className="px-0.5 xl:px-1">
+          <div className="grid items-stretch gap-3 lg:grid-cols-3 lg:gap-4">
+            <div className="flex h-full flex-col justify-between gap-3 rounded-md bg-muted/35 p-4">
               <div className="min-w-0 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium">
                   <Banknote className="size-3.5 text-muted-foreground" />
@@ -317,7 +316,7 @@ export function SubscriptionSummary({
               </Button>
             </div>
 
-            <div className="flex flex-col justify-between gap-5 rounded-md bg-muted/35 p-4 md:min-h-48 md:p-5">
+            <div className="flex h-full flex-col justify-between gap-3 rounded-md bg-muted/35 p-4">
               <div className="min-w-0 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium">
                   <CreditCard className="size-3.5 text-muted-foreground" />
@@ -341,60 +340,48 @@ export function SubscriptionSummary({
                 {hasPaidSubscription ? t("currentSubscription.manage") : t("currentSubscription.subscribe")}
               </Button>
             </div>
-          </div>
 
-          <SubscriptionEntitlementQueue
-            items={paidSubscriptionEntitlements}
-            labels={entitlementLabels}
-            locale={locale}
-            billingDisplay={billingDisplay}
-          />
+            <div className="flex h-full flex-col gap-3 rounded-md bg-muted/35 p-4">
+              <SubscriptionEntitlementQueue
+                items={paidSubscriptionEntitlements}
+                labels={entitlementLabels}
+                locale={locale}
+                billingDisplay={billingDisplay}
+              />
 
-          <div className="space-y-4 rounded-md bg-muted/35 p-4">
-            {hasPaidSubscription ? (
-              <>
-                <div className="flex items-start justify-between gap-3 md:gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium">{t("periodUsage.title")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {billingOverview?.periodStartAt && billingOverview?.periodEndAt
-                        ? `${formatShortDate(billingOverview.periodStartAt, locale)} - ${formatShortDate(billingOverview.periodEndAt, locale)}`
-                        : t("periodUsage.currentPeriod")}
-                    </p>
+              <div className="space-y-3">
+                {hasPaidSubscription ? (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-xs font-medium">{t("periodUsage.title")}</p>
+                      <p className="shrink-0 text-xs font-medium text-muted-foreground">{Math.round(periodPercent)}%</p>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-muted-foreground">{t("periodUsage.used", { value: formatPlanCredit(periodUsed, billingDisplay) })}</span>
+                        <span className="text-muted-foreground">{t("periodUsage.total", { value: formatPlanCredit(periodCredit, billingDisplay) })}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${periodPercent}%` }} />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs font-medium">{t("periodUsage.paygTitle")}</p>
+                    <div className="space-y-1 text-right">
+                      <p className="text-sm font-semibold">{formatPlanCredit(periodUsed, billingDisplay)}</p>
+                      <p className="text-xs text-muted-foreground">{t("periodUsage.paygSource")}</p>
+                    </div>
                   </div>
-                  <p className="shrink-0 text-xs font-medium text-muted-foreground">{Math.round(periodPercent)}%</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-4 text-xs">
-                    <span className="text-muted-foreground">{t("periodUsage.used", { value: formatPlanCredit(periodUsed, billingDisplay) })}</span>
-                    <span className="text-muted-foreground">{t("periodUsage.total", { value: formatPlanCredit(periodCredit, billingDisplay) })}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-foreground/70" style={{ width: `${periodPercent}%` }} />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-start justify-between gap-3 md:gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium">{t("periodUsage.paygTitle")}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {billingOverview?.periodStartAt && billingOverview?.periodEndAt
-                      ? `${formatShortDate(billingOverview.periodStartAt, locale)} - ${formatShortDate(billingOverview.periodEndAt, locale)}`
-                      : t("periodUsage.currentPeriod")}
-                  </p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <p className="text-sm font-semibold">{formatPlanCredit(periodUsed, billingDisplay)}</p>
-                  <p className="text-xs text-muted-foreground">{t("periodUsage.paygSource")}</p>
-                </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <p className="text-center text-xs leading-5 text-muted-foreground">
-            {hasPaidSubscription ? t("deduction.subscription") : t("deduction.payg")}
-          </p>
+              <p className="mt-auto border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
+                {hasPaidSubscription ? t("deduction.subscription") : t("deduction.payg")}
+              </p>
+            </div>
+          </div>
         </section>
       ) : null}
 

@@ -403,7 +403,6 @@ export function SettingsSubscription() {
         topUpLoading={topUpLoading}
         paymentDisabled={paymentDisabled}
         billingPlans={billingPlans}
-        billingOverview={billingOverview}
         currentPlan={currentPlan}
         currentPrice={currentPrice}
         viewer={viewer}
