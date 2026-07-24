@@ -292,8 +292,8 @@ export function SubscriptionSummary({
   return (
     <>
       {billingMode === "period" ? (
-        <section className="px-0.5 xl:px-1">
-          <div className="grid items-stretch gap-3 lg:grid-cols-3 lg:gap-4">
+        <section className="space-y-3 px-0.5 xl:px-1">
+          <div className="grid items-stretch gap-3 md:grid-cols-2 md:gap-4">
             <div className="flex h-full flex-col justify-between gap-3 rounded-md bg-muted/35 p-4">
               <div className="min-w-0 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-medium">
@@ -340,48 +340,48 @@ export function SubscriptionSummary({
                 {hasPaidSubscription ? t("currentSubscription.manage") : t("currentSubscription.subscribe")}
               </Button>
             </div>
+          </div>
 
-            <div className="flex h-full flex-col gap-3 rounded-md bg-muted/35 p-4">
-              <SubscriptionEntitlementQueue
-                items={paidSubscriptionEntitlements}
-                labels={entitlementLabels}
-                locale={locale}
-                billingDisplay={billingDisplay}
-              />
+          <div className="space-y-3 rounded-md bg-muted/35 p-4">
+            <SubscriptionEntitlementQueue
+              items={paidSubscriptionEntitlements}
+              labels={entitlementLabels}
+              locale={locale}
+              billingDisplay={billingDisplay}
+            />
 
-              <div className="space-y-3">
-                {hasPaidSubscription ? (
-                  <>
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-xs font-medium">{t("periodUsage.title")}</p>
-                      <p className="shrink-0 text-xs font-medium text-muted-foreground">{Math.round(periodPercent)}%</p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="text-muted-foreground">{t("periodUsage.used", { value: formatPlanCredit(periodUsed, billingDisplay) })}</span>
-                        <span className="text-muted-foreground">{t("periodUsage.total", { value: formatPlanCredit(periodCredit, billingDisplay) })}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${periodPercent}%` }} />
-                      </div>
-                    </div>
-                  </>
-                ) : (
+            <div className="space-y-3">
+              {hasPaidSubscription ? (
+                <>
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs font-medium">{t("periodUsage.paygTitle")}</p>
-                    <div className="space-y-1 text-right">
-                      <p className="text-sm font-semibold">{formatPlanCredit(periodUsed, billingDisplay)}</p>
-                      <p className="text-xs text-muted-foreground">{t("periodUsage.paygSource")}</p>
+                    <p className="text-xs font-medium">{t("periodUsage.title")}</p>
+                    <p className="shrink-0 text-xs font-medium text-muted-foreground">{Math.round(periodPercent)}%</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="text-muted-foreground">{t("periodUsage.used", { value: formatPlanCredit(periodUsed, billingDisplay) })}</span>
+                      <span className="text-muted-foreground">{t("periodUsage.total", { value: formatPlanCredit(periodCredit, billingDisplay) })}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-foreground/70" style={{ width: `${periodPercent}%` }} />
                     </div>
                   </div>
-                )}
-              </div>
-
-              <p className="mt-auto border-t border-border/60 pt-3 text-xs leading-5 text-muted-foreground">
-                {hasPaidSubscription ? t("deduction.subscription") : t("deduction.payg")}
-              </p>
+                </>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-medium">{t("periodUsage.paygTitle")}</p>
+                  <div className="space-y-1 text-right">
+                    <p className="text-sm font-semibold">{formatPlanCredit(periodUsed, billingDisplay)}</p>
+                    <p className="text-xs text-muted-foreground">{t("periodUsage.paygSource")}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
+          <p className="px-2 text-center text-xs leading-5 text-muted-foreground">
+            {hasPaidSubscription ? t("deduction.subscription") : t("deduction.payg")}
+          </p>
         </section>
       ) : null}
 
