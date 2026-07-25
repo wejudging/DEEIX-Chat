@@ -331,7 +331,6 @@ export function SubscriptionSummary({
               </div>
               <Button
                 type="button"
-                variant="outline"
                 className="w-full"
                 disabled={billingLoading || visibleBillingPlans.length === 0}
                 onClick={() => onPricingDialogOpenChange(true)}

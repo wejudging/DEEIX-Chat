@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SpinnerLabel } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { resolveAccountPlanIdentity } from "@/features/layouts/components/navigation/account-plan-identity";
 import { logout, patchMe } from "@/shared/api/auth";
 import { getBillingConfig } from "@/shared/api/billing";
 import { useAuthSession } from "@/shared/auth/auth-session-context";
@@ -80,9 +81,11 @@ export function NavUser({
   const isAdmin = user.role === "admin" || user.role === "superadmin";
   const subscriptionTier = sessionUser?.subscriptionTier.trim().toLowerCase() || "free";
   const hasPaidSubscription = subscriptionTier !== "free";
-  const planLabel = hasPaidSubscription
-    ? sessionUser?.subscriptionPlanName.trim() || sessionUser?.subscriptionTier.trim() || t("paidPlan")
-    : t("freePlan");
+  const planLabel = resolveAccountPlanIdentity({
+    subscriptionTier: sessionUser?.subscriptionTier,
+    subscriptionPlanName: sessionUser?.subscriptionPlanName,
+    billingBalanceNanousd: sessionUser?.billingBalanceNanousd,
+  });
   const balanceLabel = formatBillingDisplayBalanceFromUSD(sessionUser?.billingBalanceUSD ?? 0, billingDisplay);
 
   React.useEffect(() => subscribeAnnouncementUnreadChanged(setHasUnreadAnnouncement), []);
