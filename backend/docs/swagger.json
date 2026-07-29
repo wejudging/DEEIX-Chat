@@ -21512,6 +21512,8 @@
         "UsageLedgerResponse": {
             "type": "object",
             "required": [
+                "balanceAfterNanousd",
+                "balanceAfterUSD",
                 "billedCurrency",
                 "billedNanousd",
                 "billedUSD",
@@ -21544,6 +21546,16 @@
                 "userID"
             ],
             "properties": {
+                "balanceAfterNanousd": {
+                    "type": "integer",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "balanceAfterUSD": {
+                    "type": "number",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
                 "billedCurrency": {
                     "type": "string"
                 },
@@ -21669,6 +21681,8 @@
         "UsageLogResponse": {
             "type": "object",
             "required": [
+                "balanceAfterNanousd",
+                "balanceAfterUSD",
                 "billedCurrency",
                 "billedNanousd",
                 "billedUSD",
@@ -21703,6 +21717,16 @@
                 "username"
             ],
             "properties": {
+                "balanceAfterNanousd": {
+                    "type": "integer",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "balanceAfterUSD": {
+                    "type": "number",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
                 "billedCurrency": {
                     "type": "string"
                 },
