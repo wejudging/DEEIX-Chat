@@ -2472,6 +2472,7 @@ export interface ServerResponse {
   lastError: string;
   lastSyncedAt: string | null;
   name: string;
+  requiresToolMetadataSyncConfirmation: boolean;
   sortOrder: number;
   status: string;
   toolCount: number;
@@ -4794,7 +4795,10 @@ export namespace Admin {
       /** MCP 服务 ID */
       id: number;
     };
-    export type RequestQuery = {};
+    export type RequestQuery = {
+      /** 是否用远端元数据覆盖管理员自定义的工具名称和说明 */
+      overwrite_customized_metadata?: boolean;
+    };
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = ToolListResponseDoc;
