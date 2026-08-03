@@ -16,7 +16,7 @@
     "analyze:output": "next experimental-analyze --output",
     "start": "next start",
     "typecheck": "tsc --noEmit --pretty false",
-    "test": "node --no-warnings --test features/layouts/components/navigation/account-plan-identity.test.mjs",
+    "test:account-plan-identity": "node --no-warnings --test features/layouts/components/navigation/account-plan-identity.test.mjs",
     "check": "pnpm lint && pnpm typecheck",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
