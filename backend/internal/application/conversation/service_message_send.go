@@ -777,11 +777,22 @@ func (s *Service) sendMessageInternal(
 			route.ModelCapabilitiesJSON,
 		)
 	}
+	promptCacheSessionKey := strings.TrimSpace(conversation.SessionKey)
+	if promptCacheSessionKey == "" {
+		promptCacheSessionKey = strings.TrimSpace(conversation.PublicID)
+	}
+	promptCacheKey, filteredOptions, llmMessages := configureOpenAIPromptCacheRequestForRoute(
+		route,
+		promptCacheSessionKey,
+		filteredOptions,
+		llmMessages,
+	)
 	generateInput := llm.GenerateInput{
 		RequestID:              strings.TrimSpace(input.RequestID),
 		ConversationID:         input.ConversationID,
 		ConversationPublicID:   strings.TrimSpace(conversation.PublicID),
 		ConversationSessionKey: strings.TrimSpace(conversation.SessionKey),
+		PromptCacheKey:         promptCacheKey,
 		Messages:               llmMessages,
 		Tools:                  toolRuntime.definitions,
 		Options:                filteredOptions,
@@ -813,19 +824,15 @@ func (s *Service) sendMessageInternal(
 		conversation.LastResponseID,
 		conversation.LastPromptFingerprint,
 		statefulPrefixFingerprint,
+		filteredOptions,
 	)
-	if routeConfig.Endpoint == llm.EndpointResponses && statefulDecision.PreviousResponseID != "" {
-		statefulMessages := buildStatefulResponseMessages(llmMessages)
-		if len(statefulMessages) > 0 && len(statefulMessages) < len(llmMessages) {
-			generateInput.Messages = statefulMessages
-			generateInput.PreviousResponseID = statefulDecision.PreviousResponseID
-			estimatedPromptTokens = estimateGenerateInputTokens(generateInput)
-			sendSpan.SetAttributes(
-				attribute.Bool("conversation.stateful_response", true),
-				attribute.Int("conversation.stateful_full_messages", len(llmMessages)),
-				attribute.Int("conversation.stateful_sent_messages", len(statefulMessages)),
-			)
-		}
+	if applyStatefulResponseContinuation(routeConfig.Endpoint, statefulDecision, &generateInput) {
+		estimatedPromptTokens = estimateGenerateInputTokens(generateInput)
+		sendSpan.SetAttributes(
+			attribute.Bool("conversation.stateful_response", true),
+			attribute.Int("conversation.stateful_full_messages", len(llmMessages)),
+			attribute.Int("conversation.stateful_sent_messages", len(generateInput.Messages)),
+		)
 	} else if strings.TrimSpace(statefulDecision.DisabledReason) != "" {
 		sendSpan.SetAttributes(attribute.String("conversation.stateful_disabled_reason", statefulDecision.DisabledReason))
 	}
@@ -873,7 +880,10 @@ func (s *Service) sendMessageInternal(
 		streamedText.WriteString(delta)
 		return nil
 	}
+	var lastGenerationAttemptObservation *generationAttemptObservation
 	runGenerate := func(currentInput llm.GenerateInput) (*llm.GenerateOutput, error) {
+		attemptObservation := &generationAttemptObservation{}
+		lastGenerationAttemptObservation = attemptObservation
 		callPromptMode := "full"
 		if strings.TrimSpace(currentInput.PreviousResponseID) != "" {
 			callPromptMode = "stateful"
@@ -882,6 +892,9 @@ func (s *Service) sendMessageInternal(
 		streamSupported := llm.SupportsStreamingAdapter(routeConfig.Protocol)
 		var callVisibleText strings.Builder
 		emitCallVisibleDelta := func(delta string) error {
+			if delta != "" {
+				attemptObservation.markObservable()
+			}
 			if err := emitVisibleDelta(delta); err != nil {
 				return err
 			}
@@ -920,6 +933,9 @@ func (s *Service) sendMessageInternal(
 			}
 			cleanText, thinkText := splitAssistantOutputThinkingContent(output.Text)
 			if traceRecorder != nil && output.Reasoning != nil {
+				if traceRecorder.visible() && traceRecorder.onEvent != nil {
+					attemptObservation.markObservable()
+				}
 				traceRecorder.syncStructuredThink(
 					output.Reasoning.Text,
 					output.Reasoning.Summary,
@@ -932,6 +948,9 @@ func (s *Service) sendMessageInternal(
 					}),
 				)
 			} else if traceRecorder != nil && strings.TrimSpace(thinkText) != "" {
+				if traceRecorder.visible() && traceRecorder.onEvent != nil {
+					attemptObservation.markObservable()
+				}
 				traceRecorder.syncStructuredThink(thinkText, "", nil)
 			}
 			if traceRecorder != nil {
@@ -987,6 +1006,7 @@ func (s *Service) sendMessageInternal(
 				}
 				currentUsage := usageAccumulator.addObservedUsage(usageDelta)
 				if input.OnEvent != nil {
+					attemptObservation.markObservable()
 					if err := emitLLMUsageEvent(input.OnEvent, currentUsage); err != nil {
 						return err
 					}
@@ -994,6 +1014,9 @@ func (s *Service) sendMessageInternal(
 			}
 			if event.GeneratedImage != nil {
 				attemptHadSideEffect = true
+				if input.OnEvent != nil && strings.TrimSpace(event.GeneratedImage.B64JSON) != "" {
+					attemptObservation.markObservable()
+				}
 				if err := emitMediaImageDelta(input.OnEvent, event); err != nil {
 					return err
 				}
@@ -1002,6 +1025,9 @@ func (s *Service) sendMessageInternal(
 				attemptHadSideEffect = true
 			}
 			if traceRecorder != nil && event.Reasoning != nil && event.Reasoning.Text != "" {
+				if traceRecorder.visible() && traceRecorder.onEvent != nil {
+					attemptObservation.markObservable()
+				}
 				traceRecorder.appendUpstreamReasoning(event.Reasoning.Kind, event.Reasoning.Text, reasoningPayload(event.Reasoning))
 				if strings.EqualFold(strings.TrimSpace(event.Reasoning.Status), "completed") {
 					traceRecorder.completeUpstreamThink()
@@ -1011,6 +1037,9 @@ func (s *Service) sendMessageInternal(
 				attemptHadSideEffect = true
 			}
 			if traceRecorder != nil && event.ServerToolCall != nil {
+				if traceRecorder.visible() && traceRecorder.onEvent != nil {
+					attemptObservation.markObservable()
+				}
 				toolStatus := normalizeStreamServerToolStatus(event.ServerToolCall.Status)
 				summary, markdown, payload := buildToolTrace([]model.ToolCall{{
 					RunID:      runID,
@@ -1032,6 +1061,9 @@ func (s *Service) sendMessageInternal(
 				attemptHadSideEffect = true
 			}
 			if traceRecorder != nil && thinkDelta != "" {
+				if traceRecorder.visible() && traceRecorder.onEvent != nil {
+					attemptObservation.markObservable()
+				}
 				traceRecorder.appendUpstreamReasoning(messageTraceThinkKindContent, thinkDelta, nil)
 			}
 			if visibleDelta == "" {
@@ -1070,7 +1102,8 @@ func (s *Service) sendMessageInternal(
 				output.Text = callVisibleText.String()
 			}
 		}
-		if generateErr != nil && llmRequestCount < maxLLMCalls && shouldFallbackToNonStreaming(generateErr) {
+		if !attemptHadSideEffect && llmRequestCount < maxLLMCalls &&
+			attemptObservation.canRetry(generateErr, shouldFallbackToNonStreaming) {
 			llmRequestCount++
 			output, generateErr = s.llmClient.Generate(generationCtx, routeConfig, currentInput)
 			if generateErr == nil {
@@ -1093,9 +1126,8 @@ func (s *Service) sendMessageInternal(
 
 	runInitialRouteAttempt := func() (*llm.GenerateOutput, error) {
 		output, attemptErr := runGenerate(generateInput)
-		if attemptErr != nil && llmRequestCount < maxLLMCalls && generateInput.ResponsesBackground &&
-			strings.TrimSpace(streamedText.String()) == "" &&
-			shouldRetryWithoutResponsesBackground(attemptErr) {
+		if !attemptHadSideEffect && llmRequestCount < maxLLMCalls && generateInput.ResponsesBackground &&
+			lastGenerationAttemptObservation.canRetry(attemptErr, shouldRetryWithoutResponsesBackground) {
 			if s.logger != nil {
 				s.logger.Warn("openai_responses_background_rejected_retry_standard",
 					zap.String("trace_id", traceid.FromContext(ctx)),
@@ -1109,9 +1141,8 @@ func (s *Service) sendMessageInternal(
 			responsesBackgroundRecovery = openAIResponsesBackgroundRecoveryState{}
 			output, attemptErr = runGenerate(generateInput)
 		}
-		if attemptErr != nil && llmRequestCount < maxLLMCalls && strings.TrimSpace(generateInput.PreviousResponseID) != "" &&
-			strings.TrimSpace(streamedText.String()) == "" &&
-			shouldRetryWithoutPreviousResponseID(attemptErr) {
+		if !attemptHadSideEffect && llmRequestCount < maxLLMCalls && strings.TrimSpace(generateInput.PreviousResponseID) != "" &&
+			lastGenerationAttemptObservation.canRetry(attemptErr, shouldRetryWithoutPreviousResponseID) {
 			if s.logger != nil {
 				s.logger.Warn("previous_response_id_rejected_retry_full_context",
 					zap.String("trace_id", traceid.FromContext(ctx)),
@@ -1140,7 +1171,6 @@ func (s *Service) sendMessageInternal(
 				}))
 			}
 			sendSpan.SetAttributes(promptShapeTraceAttributes("conversation.prompt_retry", initialPromptShape)...)
-			streamedText.Reset()
 			output, attemptErr = runGenerate(generateInput)
 		}
 		return output, attemptErr
@@ -1151,7 +1181,6 @@ func (s *Service) sendMessageInternal(
 	if handleCanceledGeneration(err) {
 		return nil, retErr
 	}
-
 	attemptedRouteIDs := []uint{route.RouteID}
 	routeFailureRecorded := false
 	for canFailoverMessageRoute(len(attemptedRouteIDs), llmRequestCount, maxLLMCalls, visibleDeltaCount, attemptHadSideEffect, err) {
@@ -1186,7 +1215,6 @@ func (s *Service) sendMessageInternal(
 		promptPlan = nextPromptPlan
 		reasoningContentPassback = nextReasoningContentPassback
 		llmMessages = promptPlan.Messages
-		fullLLMMessages = llmMessages
 		applyRouteToRun(route)
 		routeConfig = messageRouteConfig(route, attributionReferer, attributionTitle)
 		responsesBackgroundRouteConfig = routeConfig
@@ -1203,11 +1231,19 @@ func (s *Service) sendMessageInternal(
 			reasoningContentPassback,
 			llmMessages,
 		)
+		promptCacheKey, filteredOptions, llmMessages = configureOpenAIPromptCacheRequestForRoute(
+			route,
+			promptCacheSessionKey,
+			filteredOptions,
+			llmMessages,
+		)
+		fullLLMMessages = llmMessages
 		generateInput = llm.GenerateInput{
 			RequestID:              strings.TrimSpace(input.RequestID),
 			ConversationID:         input.ConversationID,
 			ConversationPublicID:   strings.TrimSpace(conversation.PublicID),
 			ConversationSessionKey: strings.TrimSpace(conversation.SessionKey),
+			PromptCacheKey:         promptCacheKey,
 			Messages:               cloneLLMMessages(llmMessages),
 			Tools:                  toolRuntime.definitions,
 			Options:                filteredOptions,
