@@ -99,7 +99,7 @@ function streamEventErrorToApiError(
   event: Extract<StreamMessageEvent, { type: "error" }>,
   fallback: string,
 ): ApiError {
-  return new ApiError(event.message || fallback, 502, event.debug, event.errorCode);
+  return new ApiError(event.message || fallback, event.status ?? 502, event.details ?? event.debug, event.errorCode);
 }
 
 function resolveInputSideUsageValue(...values: Array<number | null | undefined>): number {
@@ -1171,8 +1171,8 @@ export function useChatMessageSubmit({
             ? resolveErrorMessage(
                 new ApiError(
                   completed.assistantMessage.errorMessage || t("retryLater"),
-                  502,
-                  terminalStreamError?.debug,
+                  terminalStreamError?.status ?? 502,
+                  terminalStreamError?.details ?? terminalStreamError?.debug,
                   completed.assistantMessage.errorCode,
                 ),
                 completed.assistantMessage.errorMessage || t("retryLater"),

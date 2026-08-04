@@ -225,6 +225,7 @@
     "invalidTask": "图片任务参数无效。"
   },
   "message": {
+    "contextBudgetExceeded": "本次请求超过模型上下文上限，请缩短对话或减少全文附件后重试。",
     "feedbackTargetInvalid": "消息反馈目标无效。",
     "editStateInvalid": "当前消息状态不允许编辑。",
     "editTargetInvalid": "只能编辑 AI 回复。",

@@ -3,6 +3,7 @@ package conversation
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	model "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/conversation"
@@ -214,6 +215,139 @@ func buildConversationFileContextPlan(
 	return plan
 }
 
+// rebalanceFullContextAttachmentPlan enforces the aggregate full-text limit
+// before prompt assembly. In auto mode, the largest RAG-capable files are
+// moved to retrieval first so several individually valid files cannot combine
+// into an oversized stable system message.
+func rebalanceFullContextAttachmentPlan(
+	plan conversationFileContextPlan,
+	fileMode string,
+	cfg config.Config,
+	ragAvailable bool,
+) conversationFileContextPlan {
+	maxTokens := int64(cfg.FileFullContextMaxTokens)
+	if maxTokens <= 0 || len(plan.FullAttachments) == 0 {
+		return plan
+	}
+	totalTokens := fullContextAttachmentTokens(plan.FullAttachments)
+	if totalTokens <= maxTokens {
+		return plan
+	}
+	if !strings.EqualFold(strings.TrimSpace(fileMode), "auto") || !cfg.RAGEnabled || !cfg.EmbeddingEnabled || !ragAvailable {
+		return plan
+	}
+
+	indices := make([]int, 0, len(plan.FullAttachments))
+	for index, item := range plan.FullAttachments {
+		if canRetrieveAttachment(item, ragAvailable) && normalizeAttachmentKind(item.Kind, item.DetectedMIME) != "image" {
+			indices = append(indices, index)
+		}
+	}
+	sort.SliceStable(indices, func(left, right int) bool {
+		return attachmentTextTokenEstimate(plan.FullAttachments[indices[left]]) > attachmentTextTokenEstimate(plan.FullAttachments[indices[right]])
+	})
+	moved := make(map[string]struct{}, len(indices))
+	for _, index := range indices {
+		if totalTokens <= maxTokens {
+			break
+		}
+		item := plan.FullAttachments[index]
+		totalTokens -= attachmentTextTokenEstimate(item)
+		moved[attachmentPlanKey(item)] = struct{}{}
+	}
+	if len(moved) == 0 {
+		return plan
+	}
+
+	fullAttachments := make([]AttachmentInput, 0, len(plan.FullAttachments)-len(moved))
+	ragAttachments := append([]AttachmentInput(nil), plan.RAGAttachments...)
+	for _, item := range plan.FullAttachments {
+		if _, ok := moved[attachmentPlanKey(item)]; ok {
+			item.ContextMode = fileContextModeRAG
+			ragAttachments = append(ragAttachments, item)
+			continue
+		}
+		fullAttachments = append(fullAttachments, item)
+	}
+	attachments := make([]AttachmentInput, 0, len(plan.Attachments))
+	for _, item := range plan.Attachments {
+		if _, ok := moved[attachmentPlanKey(item)]; ok {
+			item.ContextMode = fileContextModeRAG
+		}
+		attachments = append(attachments, item)
+	}
+	plan.Attachments = attachments
+	plan.FullAttachments = fullAttachments
+	plan.RAGAttachments = ragAttachments
+	return plan
+}
+
+func attachmentPlanKey(item AttachmentInput) string {
+	if fileID := strings.TrimSpace(item.FileID); fileID != "" {
+		return "file:" + fileID
+	}
+	return fmt.Sprintf("obj:%d:%s", item.FileObjID, strings.TrimSpace(item.FileName))
+}
+
+func attachmentTextTokenEstimate(item AttachmentInput) int64 {
+	if strings.TrimSpace(item.ExtractedText) == "" {
+		return 0
+	}
+	return int64(estimateTokens(item.ExtractedText))
+}
+
+func fullContextAttachmentTokens(items []AttachmentInput) int64 {
+	var total int64
+	for _, item := range items {
+		total += attachmentTextTokenEstimate(item)
+	}
+	return total
+}
+
+// limitRAGFallbackFullContext keeps the explicit RAG mode fallback bounded as
+// an aggregate. Files that cannot fit are marked skipped instead of being
+// silently appended as unlimited full text.
+func limitRAGFallbackFullContext(plan conversationFileContextPlan, cfg config.Config) conversationFileContextPlan {
+	maxTokens := int64(cfg.FileFullContextMaxTokens)
+	if maxTokens <= 0 {
+		return plan
+	}
+	usedTokens := int64(0)
+	kept := make([]AttachmentInput, 0, len(plan.FullAttachments))
+	skipped := append([]AttachmentInput(nil), plan.Skipped...)
+	removed := make(map[string]struct{})
+	for _, item := range plan.FullAttachments {
+		if item.ContextMode != fileContextModeRAGFallback {
+			kept = append(kept, item)
+			usedTokens += attachmentTextTokenEstimate(item)
+			continue
+		}
+		itemTokens := attachmentTextTokenEstimate(item)
+		if usedTokens+itemTokens <= maxTokens {
+			kept = append(kept, item)
+			usedTokens += itemTokens
+			continue
+		}
+		item.ContextMode = fileContextModeSkipped
+		skipped = append(skipped, item)
+		removed[attachmentPlanKey(item)] = struct{}{}
+	}
+	if len(removed) == 0 {
+		return plan
+	}
+	attachments := make([]AttachmentInput, 0, len(plan.Attachments))
+	for _, item := range plan.Attachments {
+		if _, ok := removed[attachmentPlanKey(item)]; ok {
+			item.ContextMode = fileContextModeSkipped
+		}
+		attachments = append(attachments, item)
+	}
+	plan.Attachments = attachments
+	plan.FullAttachments = kept
+	plan.Skipped = skipped
+	return plan
+}
+
 func shouldUseRAGForAttachment(item AttachmentInput, fileMode string, cfg config.Config, capabilityModelName string, capabilitiesJSON string, ragAvailable bool) bool {
 	if !cfg.RAGEnabled || !cfg.EmbeddingEnabled {
 		return false
@@ -261,12 +395,26 @@ func fileContextPlanRAGObjects(items []AttachmentInput) []model.FileObject {
 }
 
 func splitRetrievalFallbackAttachments(items []AttachmentInput, cfg config.Config) ([]AttachmentInput, []AttachmentInput) {
+	return splitRetrievalFallbackAttachmentsWithinBudget(items, cfg, int64(cfg.FileFullContextMaxTokens), 0)
+}
+
+// splitRetrievalFallbackAttachmentsWithinBudget shares one aggregate budget
+// with the already selected full-context files. A zero budget intentionally
+// disables full-text fallback after a failed/empty RAG request.
+func splitRetrievalFallbackAttachmentsWithinBudget(
+	items []AttachmentInput,
+	cfg config.Config,
+	maxTokens int64,
+	usedTokens int64,
+) ([]AttachmentInput, []AttachmentInput) {
 	fallbacks := make([]AttachmentInput, 0, len(items))
 	skipped := make([]AttachmentInput, 0)
 	for _, item := range items {
-		if canUseAttachmentFullContext(item, cfg) {
+		itemTokens := attachmentTextTokenEstimate(item)
+		if maxTokens > 0 && canUseAttachmentFullContext(item, cfg) && itemTokens > 0 && usedTokens+itemTokens <= maxTokens {
 			item.ContextMode = fileContextModeRAGFallback
 			fallbacks = append(fallbacks, item)
+			usedTokens += itemTokens
 			continue
 		}
 		item.ContextMode = fileContextModeSkipped

@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -72,6 +73,198 @@ func TestEstimateGenerateInputTokensIncludesInstructionsAndTools(t *testing.T) {
 	withoutTools := estimateGenerateInputTokens(input)
 	if withoutTools >= withInputShape {
 		t.Fatalf("expected disabled tools to be excluded from estimate, got %d >= %d", withoutTools, withInputShape)
+	}
+}
+
+func TestEstimateGenerateInputTokensIncludesProviderToolOptions(t *testing.T) {
+	input := llm.GenerateInput{
+		Messages: []llm.Message{{Role: "user", Content: "find current information"}},
+		Tools: []llm.ToolDefinition{{
+			Name:        "local_lookup",
+			Description: "Search local data",
+			InputSchema: []byte(`{"type":"object"}`),
+		}},
+		Options: map[string]interface{}{
+			"tools": []interface{}{
+				map[string]interface{}{
+					"type":                "web_search_preview",
+					"search_context_size": "medium",
+				},
+			},
+		},
+	}
+
+	withProviderTools := estimateGenerateInputTokens(input)
+	withoutProviderToolsInput := input
+	withoutProviderToolsInput.Options = nil
+	withoutProviderTools := estimateGenerateInputTokens(withoutProviderToolsInput)
+	if withProviderTools <= withoutProviderTools {
+		t.Fatalf("expected provider tool options to increase estimate, got %d <= %d", withProviderTools, withoutProviderTools)
+	}
+	invalidProviderToolsInput := withoutProviderToolsInput
+	invalidProviderToolsInput.Options = map[string]interface{}{"tools": "web_search_preview"}
+	if got := estimateGenerateInputTokens(invalidProviderToolsInput); got != withoutProviderTools {
+		t.Fatalf("expected invalid provider tools that cannot be sent to stay out of estimate, got %d want %d", got, withoutProviderTools)
+	}
+
+	input.DisableTools = true
+	withoutAnyTools := estimateGenerateInputTokens(input)
+	messagesOnly := estimatePromptTokens(input.Messages)
+	if withoutAnyTools != messagesOnly {
+		t.Fatalf("expected disabled tools to exclude provider and client declarations, got %d want %d", withoutAnyTools, messagesOnly)
+	}
+}
+
+func TestValidateGenerateInputContextBudgetReturnsTypedError(t *testing.T) {
+	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
+	input := llm.GenerateInput{
+		Messages: []llm.Message{{Role: "user", Content: strings.Repeat("x", 24_000)}},
+	}
+
+	err := validateGenerateInputContextBudget(input, "custom-model", capabilities, "initial_full")
+	if !errors.Is(err, ErrContextBudgetExceeded) {
+		t.Fatalf("expected context budget sentinel, got %v", err)
+	}
+	var budgetErr *ContextBudgetError
+	if !errors.As(err, &budgetErr) {
+		t.Fatalf("expected typed context budget error, got %T", err)
+	}
+	if budgetErr.EstimatedTokens <= budgetErr.BudgetTokens {
+		t.Fatalf("expected estimate to exceed budget, got %#v", budgetErr)
+	}
+	if budgetErr.BudgetTokens != int64(llm.EffectiveContextBudgetFromCapabilities("custom-model", capabilities)) {
+		t.Fatalf("unexpected budget in error: %#v", budgetErr)
+	}
+	if budgetErr.Stage != "initial_full" {
+		t.Fatalf("unexpected validation stage: %#v", budgetErr)
+	}
+	details := MessageErrorDetails(err)
+	if details["estimated_tokens"] != budgetErr.EstimatedTokens ||
+		details["budget_tokens"] != budgetErr.BudgetTokens ||
+		details["stage"] != budgetErr.Stage {
+		t.Fatalf("unexpected context budget details: %#v", details)
+	}
+	if details := MessageErrorDetails(errors.New("unrelated")); details != nil {
+		t.Fatalf("expected unrelated error to have no details, got %#v", details)
+	}
+}
+
+func TestValidateGenerateInputContextBudgetAllowsInputWithinBudget(t *testing.T) {
+	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
+	budget := int64(llm.EffectiveContextBudgetFromCapabilities("custom-model", capabilities))
+	input := llm.GenerateInput{Messages: []llm.Message{{Role: "user", Content: "hello"}}}
+	if estimateGenerateInputTokens(input) >= budget {
+		t.Fatal("test input unexpectedly exceeds effective budget")
+	}
+	if err := validateGenerateInputContextBudget(input, "custom-model", capabilities, "initial_full"); err != nil {
+		t.Fatalf("expected input within budget, got %v", err)
+	}
+}
+
+func TestTrimGenerateInputHistoryToContextBudgetRemovesOldCompleteTurns(t *testing.T) {
+	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
+	input := llm.GenerateInput{
+		Messages: []llm.Message{
+			{Role: "system", Content: "keep system policy"},
+			{Role: "user", Content: strings.Repeat("old question ", 2_000)},
+			{Role: "assistant", Content: "old answer"},
+			{Role: "user", Content: "current question"},
+		},
+		Instructions: "keep separate instructions",
+		Tools: []llm.ToolDefinition{{
+			Name:        "local_lookup",
+			Description: "Search local data",
+			InputSchema: []byte(`{"type":"object"}`),
+		}},
+		Options: map[string]interface{}{
+			"tools": []interface{}{map[string]interface{}{"type": "web_search_preview"}},
+		},
+	}
+	if err := validateGenerateInputContextBudget(input, "custom-model", capabilities, "before_trim"); !errors.Is(err, ErrContextBudgetExceeded) {
+		t.Fatalf("expected source input to exceed budget, got %v", err)
+	}
+
+	trimmed, changed := trimGenerateInputHistoryToContextBudget(input, "custom-model", capabilities)
+	if !changed {
+		t.Fatal("expected oversized old history to be trimmed")
+	}
+	if len(trimmed.Messages) != 2 || trimmed.Messages[0].Role != "system" || trimmed.Messages[1].Content != "current question" {
+		t.Fatalf("expected system prefix and current turn only, got %#v", trimmed.Messages)
+	}
+	if trimmed.Instructions != input.Instructions || len(trimmed.Tools) != len(input.Tools) || len(trimmed.Options) != len(input.Options) {
+		t.Fatalf("expected non-message request shape to be preserved, got %#v", trimmed)
+	}
+	if err := validateGenerateInputContextBudget(trimmed, "custom-model", capabilities, "after_trim"); err != nil {
+		t.Fatalf("expected trimmed input within budget, got %v", err)
+	}
+	if len(input.Messages) != 4 {
+		t.Fatal("expected source input messages to remain unchanged")
+	}
+}
+
+func TestTrimGenerateInputHistoryToContextBudgetKeepsOversizedCurrentUserAttachment(t *testing.T) {
+	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
+	input := llm.GenerateInput{Messages: []llm.Message{
+		{Role: "system", Content: "keep system policy"},
+		{Role: "user", Parts: []llm.ContentPart{
+			{Kind: llm.ContentPartText, Text: "summarize the attachment"},
+			{Kind: llm.ContentPartFile, FileName: "large.pdf", Text: strings.Repeat("x", 24_000)},
+		}},
+	}}
+
+	trimmed, changed := trimGenerateInputHistoryToContextBudget(input, "custom-model", capabilities)
+	if changed {
+		t.Fatal("expected current user attachment to be non-trimmable")
+	}
+	if len(trimmed.Messages) != len(input.Messages) || len(trimmed.Messages[1].Parts) != 2 {
+		t.Fatalf("expected current user and attachment to remain intact, got %#v", trimmed.Messages)
+	}
+	if err := validateGenerateInputContextBudget(trimmed, "custom-model", capabilities, "current_turn"); !errors.Is(err, ErrContextBudgetExceeded) {
+		t.Fatalf("expected hard validation to reject oversized current attachment, got %v", err)
+	}
+}
+
+func TestTrimGenerateInputHistoryToContextBudgetTreatsCurrentAttachmentsAsAggregate(t *testing.T) {
+	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
+	input := llm.GenerateInput{Messages: []llm.Message{{
+		Role: "user",
+		Parts: []llm.ContentPart{
+			{Kind: llm.ContentPartText, Text: "compare both attachments"},
+			{Kind: llm.ContentPartFile, FileName: "first.txt", Text: strings.Repeat("a", 10_000)},
+			{Kind: llm.ContentPartFile, FileName: "second.txt", Text: strings.Repeat("b", 10_000)},
+		},
+	}}}
+
+	trimmed, changed := trimGenerateInputHistoryToContextBudget(input, "custom-model", capabilities)
+	if changed {
+		t.Fatal("expected current attachment aggregate to be non-trimmable")
+	}
+	if len(trimmed.Messages) != 1 || len(trimmed.Messages[0].Parts) != 3 {
+		t.Fatalf("expected both current attachments to remain intact, got %#v", trimmed.Messages)
+	}
+	var budgetErr *ContextBudgetError
+	if err := validateGenerateInputContextBudget(trimmed, "custom-model", capabilities, "attachment_aggregate"); !errors.As(err, &budgetErr) {
+		t.Fatalf("expected aggregate attachments to exceed budget, got %v", err)
+	}
+}
+
+func TestTrimGenerateInputHistoryToContextBudgetDoesNotTrimAtExactBudget(t *testing.T) {
+	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
+	budget := int64(llm.EffectiveContextBudgetFromCapabilities("custom-model", capabilities))
+	input := llm.GenerateInput{Messages: []llm.Message{{
+		Role:    "user",
+		Content: strings.Repeat("x", int((budget-7)*4)),
+	}}}
+	if got := estimateGenerateInputTokens(input); got != budget {
+		t.Fatalf("test input estimate = %d, want exact budget %d", got, budget)
+	}
+
+	trimmed, changed := trimGenerateInputHistoryToContextBudget(input, "custom-model", capabilities)
+	if changed {
+		t.Fatal("expected input at exact budget not to be trimmed")
+	}
+	if len(trimmed.Messages) != 1 || trimmed.Messages[0].Content != input.Messages[0].Content {
+		t.Fatal("expected exact-budget input to remain unchanged")
 	}
 }
 

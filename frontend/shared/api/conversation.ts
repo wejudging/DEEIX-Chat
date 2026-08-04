@@ -221,6 +221,10 @@ function extractJSONDocuments(source: string): { documents: string[]; remainder:
 }
 
 function handleStreamEvent(event: StreamMessageEvent, options: ConversationStreamOptions, responseStatus: number): SendMessageResult | null {
+  if (event.type === "heartbeat") {
+    return null;
+  }
+
   const seq = streamEventSeq(event);
   if (seq > 0) {
     options.onEventSeq?.(seq);
@@ -285,7 +289,7 @@ function handleStreamEvent(event: StreamMessageEvent, options: ConversationStrea
     return event.data;
   }
 
-  throw new ApiError(event.message || "stream failed", responseStatus, event.debug, event.errorCode);
+  throw new ApiError(event.message || "stream failed", event.status ?? responseStatus, event.details ?? event.debug, event.errorCode);
 }
 
 type ListConversationsOptions = {

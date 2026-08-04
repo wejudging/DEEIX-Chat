@@ -198,6 +198,8 @@ func classifyRunErrorCode(err error) string {
 		return "file_too_large"
 	case errors.Is(err, ErrModelRouteNotConfigured):
 		return "model_route_not_configured"
+	case errors.Is(err, ErrContextBudgetExceeded):
+		return MessageErrorCodeContextBudgetExceeded
 	case errors.Is(err, ErrUpstreamEmptyResponse):
 		return "upstream_empty_response"
 	case errors.Is(err, ErrToolRunFinalAnswerMissing):
@@ -488,6 +490,9 @@ func MessageErrorSummary(err error) string {
 func MessageErrorCode(err error) string {
 	if err == nil {
 		return ""
+	}
+	if errors.Is(err, ErrContextBudgetExceeded) {
+		return MessageErrorCodeContextBudgetExceeded
 	}
 	var upstreamErr *llm.UpstreamError
 	if errors.As(err, &upstreamErr) && isImageStreamConfigurationFailure(upstreamErr) {

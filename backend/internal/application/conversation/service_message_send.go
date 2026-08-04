@@ -475,6 +475,8 @@ func (s *Service) sendMessageInternal(
 	if imageProcessing.Routed {
 		fileContextPlan = withoutCurrentImageAttachments(fileContextPlan)
 	}
+	fileContextPlan = rebalanceFullContextAttachmentPlan(fileContextPlan, fileMode, cfg, capability.RAGAvailable)
+	fileContextPlan = limitRAGFallbackFullContext(fileContextPlan, cfg)
 
 	contextAssembler := NewContextAssembler(int64(cfg.ContextMaxInputTokens))
 	userCtx := userContextInput{ImageAnalyses: imageProcessing.Analyses}
@@ -555,7 +557,12 @@ func (s *Service) sendMessageInternal(
 				zap.Uint("user_id", input.UserID),
 				zap.Error(ragErr),
 			)
-			fallbacks, skipped := splitRetrievalFallbackAttachments(fileContextPlan.RAGAttachments, cfg)
+			fallbacks, skipped := splitRetrievalFallbackAttachmentsWithinBudget(
+				fileContextPlan.RAGAttachments,
+				cfg,
+				int64(cfg.FileFullContextMaxTokens),
+				fullContextAttachmentTokens(fileContextPlan.FullAttachments),
+			)
 			fallbackLabel := "已改用全文"
 			if len(fallbacks) == 0 {
 				fallbackLabel = "没有可用全文"
@@ -577,7 +584,12 @@ func (s *Service) sendMessageInternal(
 			retrievalRAGFallbacks = append(retrievalRAGFallbacks, evidences...)
 			appendRAGFallbackSkippedTrace(traceRecorder, skipped, fallbackReason)
 		} else if len(ragChunks) == 0 {
-			fallbacks, skipped := splitRetrievalFallbackAttachments(fileContextPlan.RAGAttachments, cfg)
+			fallbacks, skipped := splitRetrievalFallbackAttachmentsWithinBudget(
+				fileContextPlan.RAGAttachments,
+				cfg,
+				int64(cfg.FileFullContextMaxTokens),
+				fullContextAttachmentTokens(fileContextPlan.FullAttachments),
+			)
 			fallbackLabel := "已改用全文"
 			if len(fallbacks) == 0 {
 				fallbackLabel = "没有可用全文"
@@ -744,9 +756,28 @@ func (s *Service) sendMessageInternal(
 		generateInput.ResponsesBackground = true
 		sendSpan.SetAttributes(attribute.Bool("conversation.responses_background", true))
 	}
-	fullLLMMessages := llmMessages
+	// Attachments and other stable prompt blocks are injected after the normal
+	// history trim. Re-check the complete prompt shape before deciding whether
+	// a previous response can be reused, otherwise a stateful request could
+	// hide an oversized full-context prefix behind only the latest user turn.
+	fullLLMMessages := cloneLLMMessages(llmMessages)
+	trimmedInitialInput, initialHistoryTrimmed := trimGenerateInputHistoryToContextBudget(
+		generateInput,
+		route.UpstreamModel,
+		route.ModelCapabilitiesJSON,
+	)
+	if initialHistoryTrimmed {
+		generateInput = trimmedInitialInput
+		llmMessages = cloneLLMMessages(trimmedInitialInput.Messages)
+		fullLLMMessages = cloneLLMMessages(trimmedInitialInput.Messages)
+		generateInput.Messages = llmMessages
+	}
 	applyOpenAIResponsesInstructions(route, routeConfig.Endpoint, &generateInput)
 	estimatedPromptTokens = estimateGenerateInputTokens(generateInput)
+	if err := validateGenerateInputContextBudget(generateInput, route.UpstreamModel, route.ModelCapabilitiesJSON, "initial_full"); err != nil {
+		retErr = err
+		return nil, err
+	}
 	statefulContextConfig := buildPromptContextConfigSignature(cfg)
 	statefulContextState := buildPromptContextStateSignature(stableFullContextAttachments, prefixMemories)
 	statefulPrefixFingerprint := buildPromptStateFingerprint(promptStateFingerprintInput{
@@ -802,6 +833,7 @@ func (s *Service) sendMessageInternal(
 	firstVisibleDeltaLatencyMS := int64(0)
 	visibleDeltaCount := 0
 	attemptHadSideEffect := false
+	historyTrimmedForRun := initialHistoryTrimmed
 	emitVisibleDelta := func(delta string) error {
 		if delta == "" {
 			return nil
@@ -824,9 +856,34 @@ func (s *Service) sendMessageInternal(
 		return nil
 	}
 	var lastGenerationAttemptObservation *generationAttemptObservation
-	runGenerate := func(currentInput llm.GenerateInput) (*llm.GenerateOutput, error) {
+	prepareGenerateInput := func(currentInput llm.GenerateInput, stage string) (llm.GenerateInput, error) {
+		prepared := currentInput
+		// Stateful requests carry the earlier context on the provider side, so
+		// only full-context forms are eligible for local history trimming here.
+		if strings.TrimSpace(prepared.PreviousResponseID) == "" {
+			trimmed, changed := trimGenerateInputHistoryToContextBudget(
+				prepared,
+				route.UpstreamModel,
+				route.ModelCapabilitiesJSON,
+			)
+			if changed {
+				prepared = trimmed
+				historyTrimmedForRun = true
+			}
+		}
+		if err := validateGenerateInputContextBudget(prepared, route.UpstreamModel, route.ModelCapabilitiesJSON, stage); err != nil {
+			return currentInput, err
+		}
+		return prepared, nil
+	}
+	runGenerate := func(currentInput llm.GenerateInput, stage string) (*llm.GenerateOutput, error) {
 		attemptObservation := &generationAttemptObservation{}
 		lastGenerationAttemptObservation = attemptObservation
+		preparedInput, prepareErr := prepareGenerateInput(currentInput, stage)
+		if prepareErr != nil {
+			return nil, prepareErr
+		}
+		currentInput = preparedInput
 		callPromptMode := "full"
 		if strings.TrimSpace(currentInput.PreviousResponseID) != "" {
 			callPromptMode = "stateful"
@@ -1068,7 +1125,11 @@ func (s *Service) sendMessageInternal(
 	}
 
 	runInitialRouteAttempt := func() (*llm.GenerateOutput, error) {
-		output, attemptErr := runGenerate(generateInput)
+		initialStage := "initial_full"
+		if strings.TrimSpace(generateInput.PreviousResponseID) != "" {
+			initialStage = "initial_stateful"
+		}
+		output, attemptErr := runGenerate(generateInput, initialStage)
 		if !attemptHadSideEffect && llmRequestCount < maxLLMCalls && generateInput.ResponsesBackground &&
 			lastGenerationAttemptObservation.canRetry(attemptErr, shouldRetryWithoutResponsesBackground) {
 			if s.logger != nil {
@@ -1082,7 +1143,7 @@ func (s *Service) sendMessageInternal(
 			}
 			generateInput.ResponsesBackground = false
 			responsesBackgroundRecovery = openAIResponsesBackgroundRecoveryState{}
-			output, attemptErr = runGenerate(generateInput)
+			output, attemptErr = runGenerate(generateInput, "initial_background_retry")
 		}
 		if !attemptHadSideEffect && llmRequestCount < maxLLMCalls && strings.TrimSpace(generateInput.PreviousResponseID) != "" &&
 			lastGenerationAttemptObservation.canRetry(attemptErr, shouldRetryWithoutPreviousResponseID) {
@@ -1114,7 +1175,7 @@ func (s *Service) sendMessageInternal(
 				}))
 			}
 			sendSpan.SetAttributes(promptShapeTraceAttributes("conversation.prompt_retry", initialPromptShape)...)
-			output, attemptErr = runGenerate(generateInput)
+			output, attemptErr = runGenerate(generateInput, "full_retry")
 		}
 		return output, attemptErr
 	}
@@ -1195,6 +1256,22 @@ func (s *Service) sendMessageInternal(
 			generateInput.ResponsesBackground = true
 		}
 		applyOpenAIResponsesInstructions(route, routeConfig.Endpoint, &generateInput)
+		trimmedRouteInput, routeHistoryTrimmed := trimGenerateInputHistoryToContextBudget(
+			generateInput,
+			route.UpstreamModel,
+			route.ModelCapabilitiesJSON,
+		)
+		if routeHistoryTrimmed {
+			generateInput = trimmedRouteInput
+			llmMessages = cloneLLMMessages(trimmedRouteInput.Messages)
+			fullLLMMessages = cloneLLMMessages(trimmedRouteInput.Messages)
+			generateInput.Messages = llmMessages
+			historyTrimmedForRun = true
+		}
+		if err := validateGenerateInputContextBudget(generateInput, route.UpstreamModel, route.ModelCapabilitiesJSON, "route_failover"); err != nil {
+			retErr = err
+			return nil, err
+		}
 		estimatedPromptTokens = estimateGenerateInputTokens(generateInput)
 		statefulPrefixFingerprint = buildPromptStateFingerprint(promptStateFingerprintInput{
 			Protocol:          route.Protocol,
@@ -1243,6 +1320,10 @@ func (s *Service) sendMessageInternal(
 		}
 	}
 	if err != nil {
+		if errors.Is(err, ErrContextBudgetExceeded) {
+			retErr = err
+			return nil, err
+		}
 		if !routeFailureRecorded {
 			s.routeResolver.MarkRouteFailure(ctx, route, err)
 		}
@@ -1263,8 +1344,6 @@ func (s *Service) sendMessageInternal(
 	remainingToolCalls := max(s.resolveMaxToolCallsPerRun()-len(imageProcessing.Rows), 0)
 	llmCallCount := llmRequestCount
 	toolLedger := newToolExecutionLedger()
-	toolHistoryTrimmedForRun := false
-
 	for len(upstreamOutput.ToolCalls) > 0 && llmCallCount < maxLLMCalls && remainingToolCalls > 0 {
 		pendingToolCalls := upstreamOutput.ToolCalls
 		if len(pendingToolCalls) > remainingToolCalls {
@@ -1345,7 +1424,7 @@ func (s *Service) sendMessageInternal(
 			route.ModelCapabilitiesJSON,
 		)
 		if toolHistoryTrimmed {
-			toolHistoryTrimmedForRun = true
+			historyTrimmedForRun = true
 			sendSpan.SetAttributes(attribute.Bool("conversation.tool.history_trimmed", true))
 		}
 		var toolResultsRebalanced bool
@@ -1375,11 +1454,15 @@ func (s *Service) sendMessageInternal(
 			applyOpenAIResponsesInstructions(route, routeConfig.Endpoint, &followUpInput)
 		}
 
-		nextOutput, nextErr := runGenerate(followUpInput)
+		nextOutput, nextErr := runGenerate(followUpInput, "tool_follow_up")
 		if handleCanceledGeneration(nextErr) {
 			return nil, retErr
 		}
 		if nextErr != nil {
+			if errors.Is(nextErr, ErrContextBudgetExceeded) {
+				retErr = nextErr
+				return nil, nextErr
+			}
 			s.routeResolver.MarkRouteFailure(ctx, route, nextErr)
 			retErr = wrapUpstreamRequestError(nextErr)
 			return nil, retErr
@@ -1405,11 +1488,15 @@ func (s *Service) sendMessageInternal(
 		finalInput.DisableTools = true
 		finalInput.PreviousResponseID = ""
 		applyOpenAIResponsesInstructions(route, routeConfig.Endpoint, &finalInput)
-		nextOutput, nextErr := runGenerate(finalInput)
+		nextOutput, nextErr := runGenerate(finalInput, "tool_final")
 		if handleCanceledGeneration(nextErr) {
 			return nil, retErr
 		}
 		if nextErr != nil {
+			if errors.Is(nextErr, ErrContextBudgetExceeded) {
+				retErr = nextErr
+				return nil, nextErr
+			}
 			s.routeResolver.MarkRouteFailure(ctx, route, nextErr)
 			retErr = wrapUpstreamRequestError(nextErr)
 			return nil, retErr
@@ -1465,7 +1552,7 @@ func (s *Service) sendMessageInternal(
 	})
 	responseIDForPersistence := upstreamOutput.ResponseID
 	// 历史裁剪后的上游 response 不再代表数据库可重建的完整历史，禁止跨轮复用。
-	if toolHistoryTrimmedForRun {
+	if historyTrimmedForRun {
 		responseIDForPersistence = ""
 		statefulPromptFingerprint = ""
 	}

@@ -225,6 +225,7 @@
     "invalidTask": "Invalid image task parameters."
   },
   "message": {
+    "contextBudgetExceeded": "This request exceeds the model's context limit. Shorten the conversation or remove some full-text attachments, then try again.",
     "feedbackTargetInvalid": "Invalid message feedback target.",
     "editStateInvalid": "This message cannot be edited in its current state.",
     "editTargetInvalid": "Only AI replies can be edited.",

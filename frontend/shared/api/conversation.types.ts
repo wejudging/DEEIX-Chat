@@ -228,6 +228,10 @@ export type SendMessageResult = Omit<SendMessageResponse, "assistantMessage" | "
 
 export type StreamMessageEvent =
   | {
+      type: "heartbeat";
+      seq?: never;
+    }
+  | {
       type: "file_proc";
       seq?: number;
       message: string;
@@ -305,8 +309,10 @@ export type StreamMessageEvent =
   | {
       type: "error";
       seq?: number;
+      status?: number;
       message: string;
       errorCode?: string;
+      details?: unknown;
       debug?: UpstreamDebugInfo;
       data?: SendMessageResult;
     };

@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/billing"
@@ -23,6 +24,90 @@ const (
 	resumeActiveCheckInterval         = 5 * time.Second
 	usageAuthorizationRenewalInterval = 30 * time.Minute
 )
+
+var messageStreamHeartbeatInterval = 20 * time.Second
+
+type ndjsonResponseWriter interface {
+	Write([]byte) (int, error)
+	Flush()
+}
+
+type streamNDJSONWriter struct {
+	writer       ndjsonResponseWriter
+	mu           sync.Mutex
+	disconnected bool
+}
+
+func newStreamNDJSONWriter(writer ndjsonResponseWriter) *streamNDJSONWriter {
+	return &streamNDJSONWriter{writer: writer}
+}
+
+func (w *streamNDJSONWriter) writeLocked(payload map[string]interface{}) error {
+	if w.disconnected {
+		return nil
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	line := append(encoded, '\n')
+	written, err := w.writer.Write(line)
+	if err == nil && written != len(line) {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		w.disconnected = true
+		return err
+	}
+	w.writer.Flush()
+	return nil
+}
+
+func (w *streamNDJSONWriter) write(payload map[string]interface{}) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.writeLocked(payload)
+}
+
+func (w *streamNDJSONWriter) publishAndWrite(
+	payload map[string]interface{},
+	publish func(map[string]interface{}) map[string]interface{},
+) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.writeLocked(publish(payload))
+}
+
+func (w *streamNDJSONWriter) startHeartbeat(interval time.Duration) func() {
+	if interval <= 0 {
+		return func() {}
+	}
+
+	done := make(chan struct{})
+	var stopOnce sync.Once
+	var heartbeatWG sync.WaitGroup
+	heartbeatWG.Add(1)
+	go func() {
+		defer heartbeatWG.Done()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				_ = w.write(map[string]interface{}{"type": "heartbeat"})
+			}
+		}
+	}()
+
+	return func() {
+		stopOnce.Do(func() {
+			close(done)
+			heartbeatWG.Wait()
+		})
+	}
+}
 
 var reservedMessageOptionKeys = map[string]struct{}{
 	"contents":          {},
@@ -388,6 +473,14 @@ func handleSendMessageError(c *gin.Context, err error) {
 		response.Error(c, http.StatusBadRequest, "embedding unavailable for current file capability")
 	case errors.Is(err, appconversation.ErrModelRouteNotConfigured):
 		response.Error(c, http.StatusServiceUnavailable, "model route not configured")
+	case errors.Is(err, appconversation.ErrContextBudgetExceeded):
+		response.ErrorWithDetails(
+			c,
+			http.StatusRequestEntityTooLarge,
+			appconversation.MessageErrorCodeContextBudgetExceeded,
+			"message context exceeds the model token budget",
+			appconversation.MessageErrorDetails(err),
+		)
 	case errors.Is(err, appconversation.ErrUpstreamEmptyResponse):
 		response.Error(c, http.StatusBadGateway, "model returned empty response")
 	case errors.Is(err, appconversation.ErrUpstreamRequestFailed):
@@ -495,22 +588,13 @@ func (h *Handler) StreamMessage(c *gin.Context) {
 	c.Header("X-Accel-Buffering", "no")
 	c.Status(http.StatusOK)
 
-	var clientDisconnected atomic.Bool
+	streamWriter := newStreamNDJSONWriter(c.Writer)
+	stopHeartbeat := streamWriter.startHeartbeat(messageStreamHeartbeatInterval)
+	defer stopHeartbeat()
 	flushStreamEvent := func(payload map[string]interface{}) error {
-		payload = h.service.PublishMessageGenerationEvent(input.ClientRunID, payload)
-		if clientDisconnected.Load() {
-			return nil
-		}
-		encoded, marshalErr := json.Marshal(payload)
-		if marshalErr != nil {
-			return marshalErr
-		}
-		if _, writeErr := c.Writer.Write(append(encoded, '\n')); writeErr != nil {
-			clientDisconnected.Store(true)
-			return writeErr
-		}
-		c.Writer.Flush()
-		return nil
+		return streamWriter.publishAndWrite(payload, func(payload map[string]interface{}) map[string]interface{} {
+			return h.service.PublishMessageGenerationEvent(input.ClientRunID, payload)
+		})
 	}
 
 	// 有附件时先推送文件处理事件，提升用户体验感知。
@@ -663,6 +747,9 @@ func (h *Handler) ResumeMessageGenerationStream(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 	c.Status(http.StatusOK)
+	streamWriter := newStreamNDJSONWriter(c.Writer)
+	stopHeartbeat := streamWriter.startHeartbeat(messageStreamHeartbeatInterval)
+	defer stopHeartbeat()
 
 	isTerminal := func(payload map[string]interface{}) bool {
 		eventType, _ := payload["type"].(string)
@@ -670,14 +757,9 @@ func (h *Handler) ResumeMessageGenerationStream(c *gin.Context) {
 	}
 	terminalWritten := false
 	writeEvent := func(payload map[string]interface{}) bool {
-		encoded, marshalErr := json.Marshal(payload)
-		if marshalErr != nil {
-			return true
-		}
-		if _, writeErr := c.Writer.Write(append(encoded, '\n')); writeErr != nil {
+		if writeErr := streamWriter.write(payload); writeErr != nil {
 			return false
 		}
-		c.Writer.Flush()
 		if isTerminal(payload) {
 			terminalWritten = true
 		}

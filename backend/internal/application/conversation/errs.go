@@ -2,6 +2,8 @@ package conversation
 
 import "errors"
 
+const MessageErrorCodeContextBudgetExceeded = "message.context_budget_exceeded"
+
 var (
 	// ErrConversationNotFound 会话不存在或无权限。
 	ErrConversationNotFound = errors.New("conversation not found")
@@ -77,6 +79,8 @@ var (
 	ErrModelRouteNotConfigured = errors.New("model route not configured")
 	// ErrModelAccessDenied 当前用户无权使用此模型。
 	ErrModelAccessDenied = errors.New("model access denied by group policy")
+	// ErrContextBudgetExceeded 最终模型输入超过当前路由的有效上下文预算。
+	ErrContextBudgetExceeded = errors.New("context budget exceeded")
 	// ErrUpstreamRequestFailed 上游请求失败。
 	ErrUpstreamRequestFailed = errors.New("upstream request failed")
 	// ErrUpstreamEmptyResponse 上游返回空响应。
@@ -108,3 +112,37 @@ var (
 	// ErrDuplicateMessageGenerationRun 表示客户端重复提交同一个生成 run。
 	ErrDuplicateMessageGenerationRun = errors.New("duplicate message generation run")
 )
+
+// ContextBudgetError 保留最终请求估算值与当前路由预算，供持久化、追踪和边界层分类。
+type ContextBudgetError struct {
+	EstimatedTokens int64
+	BudgetTokens    int64
+	Stage           string
+}
+
+func (e *ContextBudgetError) Error() string {
+	if e == nil {
+		return ErrContextBudgetExceeded.Error()
+	}
+	if e.Stage != "" {
+		return e.Stage + ": estimated input tokens exceed context budget"
+	}
+	return "estimated input tokens exceed context budget"
+}
+
+func (e *ContextBudgetError) Unwrap() error {
+	return ErrContextBudgetExceeded
+}
+
+// MessageErrorDetails 返回适合 HTTP 和流式边界层透传的结构化错误详情。
+func MessageErrorDetails(err error) map[string]interface{} {
+	var budgetErr *ContextBudgetError
+	if !errors.As(err, &budgetErr) || budgetErr == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"estimated_tokens": budgetErr.EstimatedTokens,
+		"budget_tokens":    budgetErr.BudgetTokens,
+		"stage":            budgetErr.Stage,
+	}
+}

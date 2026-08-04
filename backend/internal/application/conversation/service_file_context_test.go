@@ -530,6 +530,66 @@ func TestSplitRetrievalFallbackAttachmentsRespectsFullContextBudget(t *testing.T
 	}
 }
 
+func TestRebalanceFullContextAttachmentPlanMovesLargestRAGCapableFiles(t *testing.T) {
+	cfg := config.Config{
+		RAGEnabled:               true,
+		EmbeddingEnabled:         true,
+		FileFullContextMaxTokens: 3,
+	}
+	plan := conversationFileContextPlan{
+		Attachments: []AttachmentInput{
+			{FileID: "small", ExtractedText: strings.Repeat("a", 16), EmbedStatus: "ready"},
+			{FileID: "large", ExtractedText: strings.Repeat("b", 32), EmbedStatus: "ready"},
+		},
+		FullAttachments: []AttachmentInput{
+			{FileID: "small", ExtractedText: strings.Repeat("a", 16), EmbedStatus: "ready", ContextMode: fileContextModeFull},
+			{FileID: "large", ExtractedText: strings.Repeat("b", 32), EmbedStatus: "ready", ContextMode: fileContextModeFull},
+		},
+	}
+
+	got := rebalanceFullContextAttachmentPlan(plan, "auto", cfg, true)
+	if len(got.FullAttachments) != 0 || len(got.RAGAttachments) != 2 {
+		t.Fatalf("expected both files to move to RAG, got %#v", got)
+	}
+	for _, item := range got.Attachments {
+		if item.ContextMode != fileContextModeRAG {
+			t.Fatalf("expected attachment %q to use RAG, got %#v", item.FileID, item)
+		}
+	}
+}
+
+func TestSplitRetrievalFallbackAttachmentsWithinBudgetDisablesZeroBudgetFallback(t *testing.T) {
+	items := []AttachmentInput{{
+		FileID:        "file",
+		FileCategory:  "document",
+		ExtractedText: "short text",
+	}}
+	fallbacks, skipped := splitRetrievalFallbackAttachmentsWithinBudget(items, config.Config{}, 0, 0)
+	if len(fallbacks) != 0 || len(skipped) != 1 || skipped[0].ContextMode != fileContextModeSkipped {
+		t.Fatalf("expected zero budget to skip fallback, got fallbacks=%#v skipped=%#v", fallbacks, skipped)
+	}
+}
+
+func TestLimitRAGFallbackFullContextUsesAggregateBudget(t *testing.T) {
+	plan := conversationFileContextPlan{
+		Attachments: []AttachmentInput{
+			{FileID: "first", ContextMode: fileContextModeRAGFallback, ExtractedText: "12345678"},
+			{FileID: "second", ContextMode: fileContextModeRAGFallback, ExtractedText: "abcdefgh"},
+		},
+		FullAttachments: []AttachmentInput{
+			{FileID: "first", ContextMode: fileContextModeRAGFallback, ExtractedText: "12345678"},
+			{FileID: "second", ContextMode: fileContextModeRAGFallback, ExtractedText: "abcdefgh"},
+		},
+	}
+	got := limitRAGFallbackFullContext(plan, config.Config{FileFullContextMaxTokens: 3})
+	if len(got.FullAttachments) != 1 || got.FullAttachments[0].FileID != "first" {
+		t.Fatalf("expected one fallback within aggregate budget, got %#v", got.FullAttachments)
+	}
+	if len(got.Skipped) != 1 || got.Skipped[0].FileID != "second" || got.Skipped[0].ContextMode != fileContextModeSkipped {
+		t.Fatalf("expected second fallback to be skipped, got %#v", got.Skipped)
+	}
+}
+
 func TestInjectUserContextCombinesDataContexts(t *testing.T) {
 	messages := []llm.Message{{Role: "user", Content: "继续"}}
 	input := userContextInput{

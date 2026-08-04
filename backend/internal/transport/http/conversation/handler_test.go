@@ -133,6 +133,60 @@ func TestMapStreamErrorDoesNotExposeUpstreamUnauthorizedAsPlatformUnauthorized(t
 	}
 }
 
+func TestMapStreamErrorReturnsContextBudgetExceeded(t *testing.T) {
+	err := &appconversation.ContextBudgetError{
+		EstimatedTokens: 195_676,
+		BudgetTokens:    178_808,
+		Stage:           "initial_full",
+	}
+
+	mapped := mapStreamError(err)
+	if mapped.Status != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d", mapped.Status, http.StatusRequestEntityTooLarge)
+	}
+	if mapped.Code != appconversation.MessageErrorCodeContextBudgetExceeded {
+		t.Fatalf("error code = %q, want %q", mapped.Code, appconversation.MessageErrorCodeContextBudgetExceeded)
+	}
+	payload := streamErrorPayload(err)
+	details, ok := payload["details"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected structured budget details, got %#v", payload["details"])
+	}
+	if details["estimated_tokens"] != int64(195_676) || details["budget_tokens"] != int64(178_808) || details["stage"] != "initial_full" {
+		t.Fatalf("unexpected budget details: %#v", details)
+	}
+	if payload["status"] != http.StatusRequestEntityTooLarge {
+		t.Fatalf("stream error status = %#v, want %d", payload["status"], http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestHandleSendMessageErrorReturnsContextBudgetDetails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	err := &appconversation.ContextBudgetError{
+		EstimatedTokens: 195_676,
+		BudgetTokens:    178_808,
+		Stage:           "initial_full",
+	}
+
+	handleSendMessageError(c, err)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+	var payload response.Envelope
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.ErrorCode != appconversation.MessageErrorCodeContextBudgetExceeded {
+		t.Fatalf("errorCode = %q, want %q", payload.ErrorCode, appconversation.MessageErrorCodeContextBudgetExceeded)
+	}
+	details, ok := payload.Details.(map[string]interface{})
+	if !ok || details["estimated_tokens"] != float64(195_676) || details["budget_tokens"] != float64(178_808) {
+		t.Fatalf("unexpected details: %#v", payload.Details)
+	}
+}
+
 func TestMapBillingStreamErrorReturnsConcurrencyLimit(t *testing.T) {
 	mapped := mapBillingStreamError(appbilling.ErrUsageConcurrencyLimitExceeded)
 	if mapped.Status != http.StatusTooManyRequests || mapped.Code != "billing.concurrency_limit_exceeded" {

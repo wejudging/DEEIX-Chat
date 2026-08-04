@@ -162,6 +162,10 @@ func mapStreamError(err error) streamError {
 	case errors.Is(err, appconversation.ErrModelRouteNotConfigured):
 		status = http.StatusServiceUnavailable
 		message = "model route not configured"
+	case errors.Is(err, appconversation.ErrContextBudgetExceeded):
+		status = http.StatusRequestEntityTooLarge
+		code = appconversation.MessageErrorCodeContextBudgetExceeded
+		message = "message context exceeds the model token budget"
 	case errors.Is(err, appconversation.ErrUpstreamEmptyResponse):
 		status = http.StatusBadGateway
 		message = "model returned empty response"
@@ -220,11 +224,15 @@ func streamErrorPayload(err error) map[string]interface{} {
 	mapped := mapStreamError(err)
 	payload := map[string]interface{}{
 		"type":      "error",
+		"status":    mapped.Status,
 		"message":   mapped.Message,
 		"errorCode": mapped.Code,
 	}
 	if debug := appconversation.MessageErrorDebug(err); debug != nil {
 		payload["debug"] = debug
+	}
+	if details := appconversation.MessageErrorDetails(err); details != nil {
+		payload["details"] = details
 	}
 	return payload
 }

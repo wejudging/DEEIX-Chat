@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/llm"
@@ -100,8 +101,95 @@ func estimateGenerateInputTokens(input llm.GenerateInput) int64 {
 	}
 	if !input.DisableTools {
 		tokens += estimateToolDefinitionTokens(input.Tools)
+		tokens += estimateProviderToolOptionTokens(input.Options)
 	}
 	return tokens
+}
+
+// estimateProviderToolOptionTokens 估算由模型 options 追加到请求中的厂商原生工具声明。
+// adapter 会将它们与 input.Tools 合并发送，因此两部分都必须计入最终输入形态。
+func estimateProviderToolOptionTokens(options map[string]interface{}) int64 {
+	if len(options) == 0 {
+		return 0
+	}
+	tools, ok := options["tools"]
+	if !ok || tools == nil {
+		return 0
+	}
+	switch typed := tools.(type) {
+	case []map[string]interface{}:
+		if len(typed) == 0 {
+			return 0
+		}
+	case []interface{}:
+		if len(typed) == 0 {
+			return 0
+		}
+		for _, item := range typed {
+			if _, valid := item.(map[string]interface{}); !valid {
+				return 0
+			}
+		}
+	default:
+		return 0
+	}
+	payload, err := json.Marshal(tools)
+	if err != nil || len(payload) == 0 || string(payload) == "null" {
+		return 0
+	}
+	return estimateTokens(string(payload)) + 2
+}
+
+// validateGenerateInputContextBudget 在请求进入上游前校验完整输入形态。
+func validateGenerateInputContextBudget(
+	input llm.GenerateInput,
+	modelName string,
+	capabilitiesJSON string,
+	stage string,
+) error {
+	estimatedTokens := estimateGenerateInputTokens(input)
+	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilities(modelName, capabilitiesJSON))
+	if estimatedTokens <= budgetTokens {
+		return nil
+	}
+	return &ContextBudgetError{
+		EstimatedTokens: estimatedTokens,
+		BudgetTokens:    budgetTokens,
+		Stage:           strings.TrimSpace(stage),
+	}
+}
+
+// trimGenerateInputHistoryToContextBudget 在完整请求超预算时删除最老的完整历史轮次。
+// leading system 前缀、最后一个 user 及其后的当前轮消息始终保留。
+func trimGenerateInputHistoryToContextBudget(
+	input llm.GenerateInput,
+	modelName string,
+	capabilitiesJSON string,
+) (llm.GenerateInput, bool) {
+	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilities(modelName, capabilitiesJSON))
+	if estimateGenerateInputTokens(input) <= budgetTokens {
+		return input, false
+	}
+
+	systemEnd, currentUserIndex := toolHistoryBounds(input.Messages)
+	if currentUserIndex <= systemEnd {
+		return input, false
+	}
+	for cutFrom := systemEnd; cutFrom < currentUserIndex; cutFrom++ {
+		nextIndex := cutFrom + 1
+		if nextIndex < currentUserIndex && input.Messages[nextIndex].Role != "user" {
+			continue
+		}
+		messages := make([]llm.Message, 0, systemEnd+len(input.Messages)-nextIndex)
+		messages = append(messages, input.Messages[:systemEnd]...)
+		messages = append(messages, input.Messages[nextIndex:]...)
+		candidate := input
+		candidate.Messages = messages
+		if estimateGenerateInputTokens(candidate) <= budgetTokens || nextIndex == currentUserIndex {
+			return candidate, true
+		}
+	}
+	return input, false
 }
 
 func estimateToolDefinitionTokens(tools []llm.ToolDefinition) int64 {
