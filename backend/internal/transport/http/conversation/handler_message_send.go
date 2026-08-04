@@ -481,6 +481,8 @@ func handleSendMessageError(c *gin.Context, err error) {
 			"message context exceeds the model token budget",
 			appconversation.MessageErrorDetails(err),
 		)
+	case errors.Is(err, appconversation.ErrGeneratedMediaArtifactUnavailable):
+		response.ErrorWithCode(c, http.StatusBadGateway, appconversation.MessageErrorCode(err), "generated media artifact is temporarily unavailable")
 	case errors.Is(err, appconversation.ErrUpstreamEmptyResponse):
 		response.Error(c, http.StatusBadGateway, "model returned empty response")
 	case errors.Is(err, appconversation.ErrUpstreamRequestFailed):

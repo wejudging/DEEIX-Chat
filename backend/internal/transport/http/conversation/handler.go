@@ -166,6 +166,10 @@ func mapStreamError(err error) streamError {
 		status = http.StatusRequestEntityTooLarge
 		code = appconversation.MessageErrorCodeContextBudgetExceeded
 		message = "message context exceeds the model token budget"
+	case errors.Is(err, appconversation.ErrGeneratedMediaArtifactUnavailable):
+		status = http.StatusBadGateway
+		code = appconversation.MessageErrorCode(err)
+		message = "generated media artifact is temporarily unavailable"
 	case errors.Is(err, appconversation.ErrUpstreamEmptyResponse):
 		status = http.StatusBadGateway
 		message = "model returned empty response"
@@ -251,6 +255,9 @@ func mapClientErrorMessage(err error) string {
 	}
 	if errors.Is(err, appconversation.ErrUpstreamEmptyResponse) {
 		return "model returned empty response"
+	}
+	if errors.Is(err, appconversation.ErrGeneratedMediaArtifactUnavailable) {
+		return "generated media artifact is temporarily unavailable"
 	}
 	if errors.Is(err, appconversation.ErrUpstreamRequestFailed) {
 		detail := appconversation.MessageErrorSummary(err)
