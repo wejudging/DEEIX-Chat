@@ -182,10 +182,6 @@ func (s *Service) sendMessageInternal(
 		sendSpan.End()
 	}()
 
-	maxFiles := s.cfg.Snapshot().MaxMessageFiles
-	if maxFiles <= 0 {
-		maxFiles = 10
-	}
 	// application 层保留兜底校验，保证非 HTTP 调用路径也遵守同一 MCP 工具数量策略。
 	if err := s.ValidateSelectedToolIDs(input.SelectedToolIDs); err != nil {
 		return nil, err
@@ -202,20 +198,14 @@ func (s *Service) sendMessageInternal(
 		return nil, ErrConversationNotFound
 	}
 
-	normalizedBranchReason := normalizeBranchReason(input.BranchReason)
-	branchState, err := s.resolveMessageBranch(ctx, input.ConversationID, input.UserID, input.ParentMessagePublicID, input.SourceMessagePublicID, normalizedBranchReason)
+	branchPreparation, err := s.prepareMessageSendBranch(ctx, &input)
 	if err != nil {
 		retErr = err
 		return nil, err
 	}
-	reuseUserMessage := branchState.ReuseUserMessage != nil
-	if reuseUserMessage {
-		input.Content = branchState.ReuseUserMessage.Content
-		input.FileIDs = parseAttachmentSnapshotFileIDs(branchState.ReuseUserMessage.Attachments)
-	}
-	if len(input.FileIDs) > maxFiles {
-		return nil, ErrTooManyMessageFiles
-	}
+	branchState := branchPreparation.branchState
+	normalizedBranchReason := branchPreparation.normalizedBranchReason
+	reuseUserMessage := branchPreparation.reuseUserMessage
 	if input.Cancelable {
 		cancelCtx, cancel := context.WithCancel(ctx)
 		ctx = cancelCtx
@@ -246,7 +236,6 @@ func (s *Service) sendMessageInternal(
 	var responsesBackgroundRouteConfig llm.RouteConfig
 	var responsesBackgroundRecovery openAIResponsesBackgroundRecoveryState
 	responsesBackgroundUsageRecovered := false
-	userContentEstimatedInputTokens := int64(0)
 	usageAccumulator := &messageUsageAccumulator{}
 	upstreamCallStarted := false
 	runState := newMessageSendRunState(s, input, conversation, startedAt, runID)
@@ -318,92 +307,13 @@ func (s *Service) sendMessageInternal(
 		return nil, err
 	}
 
-	userContentEstimatedInputTokens = estimateTokens(input.Content)
-	assistantMessage = &model.Message{
-		ConversationID:   input.ConversationID,
-		UserID:           input.UserID,
-		PublicID:         normalizePublicID(uuid.NewString()),
-		RunID:            runID,
-		Role:             "assistant",
-		ContentType:      "text",
-		Content:          "",
-		BranchReason:     normalizedBranchReason,
-		TokenUsage:       0,
-		InputTokens:      0,
-		OutputTokens:     0,
-		CacheReadTokens:  0,
-		CacheWriteTokens: 0,
-		ReasoningTokens:  0,
-		LatencyMS:        0,
-		Status:           "pending",
-		ErrorCode:        "",
-		ErrorMessage:     "",
-		Attachments:      "[]",
+	pair, err := s.createMessagePair(ctx, input, runID, branchPreparation, resolvedAttachments, nil)
+	if err != nil {
+		retErr = err
+		return nil, err
 	}
-	if reuseUserMessage {
-		reused := *branchState.ReuseUserMessage
-		userMessage = &reused
-		assistantMessage.ParentMessageID = &userMessage.ID
-		assistantMessage.SourceMessageID = branchState.SourceMessageID
-		if err = s.repo.CreateAssistantBranchMessage(ctx, assistantMessage); err != nil {
-			retErr = err
-			return nil, err
-		}
-		assistantMessage.ParentPublicID = userMessage.PublicID
-		assistantMessage.SourcePublicID = branchState.SourcePublicID
-	} else {
-		attachmentsJSON := []byte(marshalAttachmentSnapshots(resolvedAttachments))
-		userMessage = &model.Message{
-			ConversationID:   input.ConversationID,
-			UserID:           input.UserID,
-			PublicID:         normalizePublicID(uuid.NewString()),
-			ParentMessageID:  branchState.ParentMessageID,
-			RunID:            runID,
-			Role:             "user",
-			ContentType:      fallbackContentType(input.ContentType),
-			Content:          input.Content,
-			BranchReason:     normalizedBranchReason,
-			SourceMessageID:  branchState.SourceMessageID,
-			TokenUsage:       userContentEstimatedInputTokens,
-			InputTokens:      userContentEstimatedInputTokens,
-			OutputTokens:     0,
-			CacheReadTokens:  0,
-			CacheWriteTokens: 0,
-			ReasoningTokens:  0,
-			LatencyMS:        0,
-			Status:           "pending",
-			ErrorCode:        "",
-			ErrorMessage:     "",
-			Attachments:      string(attachmentsJSON),
-		}
-		attachmentRows := make([]model.Attachment, 0, len(resolvedAttachments))
-		now := time.Now()
-		for _, item := range resolvedAttachments {
-			attachmentRows = append(attachmentRows, model.Attachment{
-				ConversationID: input.ConversationID,
-				UserID:         input.UserID,
-				FileID:         strings.TrimSpace(item.FileID),
-				Kind:           normalizeAttachmentKind(item.Kind, item.MimeType),
-				FileName:       strings.TrimSpace(item.FileName),
-				MimeType:       strings.TrimSpace(item.MimeType),
-				FileSize:       item.FileSize,
-				SHA256:         strings.TrimSpace(item.SHA256),
-				StoragePath:    strings.TrimSpace(item.StoragePath),
-				Status:         "active",
-				MetaJSON:       strings.TrimSpace(item.MetaJSON),
-				UploadedAt:     now,
-			})
-		}
-
-		// 用户消息、助手占位、用户附件与消息计数必须一起提交，避免失败时留下半个回合。
-		if err = s.repo.CreateMessagePairWithUserAttachments(ctx, userMessage, assistantMessage, attachmentRows); err != nil {
-			retErr = err
-			return nil, err
-		}
-		userMessage.ParentPublicID = branchState.ParentPublicID
-		userMessage.SourcePublicID = branchState.SourcePublicID
-		assistantMessage.ParentPublicID = userMessage.PublicID
-	}
+	userMessage = pair.user
+	assistantMessage = pair.assistant
 	s.persistInitialConversationFallbackTitle(ctx, *conversation, *userMessage)
 	traceRecorder = newMessageTraceRecorder(s, ctx, assistantMessage, input.OnEvent)
 
@@ -531,10 +441,43 @@ func (s *Service) sendMessageInternal(
 	currentAttachments := filterCurrentAttachments(conversationAttachments)
 	userMessage.Attachments = marshalAttachmentSnapshots(currentAttachments)
 
+	toolRuntime, err := s.resolveSelectedToolRuntime(ctx, input.SelectedToolIDs)
+	if err != nil {
+		retErr = err
+		return nil, err
+	}
+	imageAttachmentRoutingActive := toolRuntime.attachmentProcessor != nil
+	imageProcessing, err := s.processImageAttachments(ctx, imageAttachmentProcessingInput{
+		UserID:         input.UserID,
+		ConversationID: input.ConversationID,
+		MessageID:      assistantMessage.ID,
+		RequestID:      input.RequestID,
+		RunID:          runID,
+		UserPrompt:     input.Content,
+		Attachments:    currentAttachments,
+		Runtime:        toolRuntime,
+		TraceRecorder:  traceRecorder,
+	})
+	toolCallRows = append(toolCallRows, imageProcessing.Rows...)
+	mergeToolCallPersistenceKeys(&persistedToolCallKeys, imageProcessing.PersistedToolCallKeys)
+	if err != nil {
+		retErr = err
+		return nil, err
+	}
+	if imageProcessing.Routed {
+		toolRuntime = toolRuntime.withoutAttachmentProcessor()
+		if len(toolCallRows) >= s.resolveMaxToolCallsPerRun() {
+			toolRuntime = toolRuntime.withoutDefinitions()
+		}
+	}
+
 	fileContextPlan := buildConversationFileContextPlan(conversationAttachments, fileMode, cfg, route.UpstreamModel, route.ModelCapabilitiesJSON, capability.RAGAvailable)
+	if imageProcessing.Routed {
+		fileContextPlan = withoutCurrentImageAttachments(fileContextPlan)
+	}
 
 	contextAssembler := NewContextAssembler(int64(cfg.ContextMaxInputTokens))
-	userCtx := userContextInput{}
+	userCtx := userContextInput{ImageAnalyses: imageProcessing.Analyses}
 	var prefixMemories []domainmemory.UserMemory
 	preferencePrompt := ""
 	if promptScope.Snapshot != nil {
@@ -727,7 +670,6 @@ func (s *Service) sendMessageInternal(
 			messageTraceStatusStreaming,
 		)
 	}
-	toolRuntime := s.resolveSelectedToolRuntime(ctx, input.SelectedToolIDs)
 	routePromptInput := messageRoutePromptInput{
 		UserContent:             input.Content,
 		ProjectSystemPrompt:     conversation.ProjectSystemPrompt,
@@ -738,6 +680,7 @@ func (s *Service) sendMessageInternal(
 		PreferencePrompt:        preferencePrompt,
 		SkillPrompts:            skillPrompts,
 		ToolRuntime:             toolRuntime,
+		SkipImageAttachments:    imageAttachmentRoutingActive,
 		Config:                  cfg,
 	}
 	buildRoutePrompt := func(currentRoute *channel.ResolvedRoute) (PromptPlan, bool, error) {
@@ -1308,7 +1251,6 @@ func (s *Service) sendMessageInternal(
 	}
 	s.routeResolver.MarkRouteSuccess(ctx, route)
 
-	toolCallRows = make([]model.ToolCall, 0)
 	assistantText, nativeToolRows := syncUpstreamOutputTrace(traceRecorder, upstreamOutput, runID)
 	toolCallRows = append(toolCallRows, nativeToolRows...)
 	totalUsage := upstreamOutput.Usage
@@ -1318,7 +1260,7 @@ func (s *Service) sendMessageInternal(
 		usageAccumulator.setObservedUsage(totalUsage)
 	}
 	totalServerSideToolUsage = addServerSideToolUsage(nil, upstreamOutput.ServerSideToolUsage)
-	remainingToolCalls := s.resolveMaxToolCallsPerRun()
+	remainingToolCalls := max(s.resolveMaxToolCallsPerRun()-len(imageProcessing.Rows), 0)
 	llmCallCount := llmRequestCount
 	toolLedger := newToolExecutionLedger()
 	toolHistoryTrimmedForRun := false

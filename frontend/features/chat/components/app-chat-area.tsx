@@ -58,6 +58,10 @@ import { useAuthSession } from "@/shared/auth/auth-session-context";
 import type { ConversationDTO, ConversationOptions } from "@/shared/api/conversation.types";
 import type { FileObjectDTO } from "@/shared/api/file.types";
 import type { MCPToolDTO } from "@/shared/api/mcp.types";
+import {
+  hasMultipleImageAttachmentProcessors,
+  normalizeImageAttachmentProcessorSelection,
+} from "@/shared/lib/mcp-tool-selection";
 import { cn } from "@/lib/utils";
 import { formatBillingDisplayBalanceFromUSD } from "@/shared/lib/billing-display";
 
@@ -403,12 +407,15 @@ export function AppChatArea() {
   const [defaultToolIDs, setDefaultToolIDs] = React.useState<number[]>([]);
   const newConversationSelectionKey = `${newConversationRevision}:${newConversationProjectID || "unassigned"}`;
   const newConversationDefaultMCPToolIDs = React.useMemo(
-    () => filterAvailableMCPToolIDs(
-      newConversationProject?.mcpDefaultMode === "custom"
-        ? newConversationProject.defaultMCPToolIDs
-        : defaultToolIDs,
+    () => normalizeImageAttachmentProcessorSelection(
+      filterAvailableMCPToolIDs(
+        newConversationProject?.mcpDefaultMode === "custom"
+          ? newConversationProject.defaultMCPToolIDs
+          : defaultToolIDs,
+        availableTools,
+        mcpMaxSelectedTools,
+      ),
       availableTools,
-      mcpMaxSelectedTools,
     ),
     [availableTools, defaultToolIDs, mcpMaxSelectedTools, newConversationProject],
   );
@@ -416,7 +423,7 @@ export function AppChatArea() {
     () => (newConversationProject?.defaultSkillIDs ?? []).slice(0, mcpMaxSelectedTools),
     [mcpMaxSelectedTools, newConversationProject],
   );
-  const { onSelectedSkillsChange, onSelectedToolsChange } = useNewConversationDefaults({
+  const { onSelectedSkillsChange, onSelectedToolsChange: applySelectedToolsChange } = useNewConversationDefaults({
     conversationID,
     contextKey: newConversationSelectionKey,
     defaultsPending: Boolean(newConversationProjectID && !newConversationProject),
@@ -426,6 +433,28 @@ export function AppChatArea() {
     setSelectedToolIDs,
     setSelectedSkills,
   });
+  const onSelectedToolsChange = React.useCallback((nextToolIDs: number[]) => {
+    if (hasMultipleImageAttachmentProcessors(nextToolIDs, availableTools)) {
+      toast.error(t("composer.mcpImageProcessorLimitTitle"), {
+        description: t("composer.mcpImageProcessorLimitDescription"),
+      });
+      return;
+    }
+    applySelectedToolsChange(nextToolIDs);
+  }, [applySelectedToolsChange, availableTools, t]);
+  React.useEffect(() => {
+    if (toolsLoading) {
+      return;
+    }
+    const normalized = normalizeImageAttachmentProcessorSelection(
+      filterAvailableMCPToolIDs(selectedToolIDs, availableTools, mcpMaxSelectedTools),
+      availableTools,
+    );
+    if (normalized.length === selectedToolIDs.length && normalized.every((id, index) => id === selectedToolIDs[index])) {
+      return;
+    }
+    setSelectedToolIDs(normalized);
+  }, [availableTools, mcpMaxSelectedTools, selectedToolIDs, setSelectedToolIDs, toolsLoading]);
   const htmlVisualPrompt = useChatVisualPrompt();
   const initializedOptionsModelRef = React.useRef("");
   const selectedModelDefaultOptionsRef = React.useRef<ConversationOptions>({});
@@ -530,14 +559,20 @@ export function AppChatArea() {
           return;
         }
         const tools = normalizeAvailableMCPTools(toolsResult);
-        const userDefaultToolIDs = filterAvailableMCPToolIDs(
-          parseDefaultMCPToolIDs(settings[DEFAULT_MCP_TOOLS_SETTING_KEY]),
+        const userDefaultToolIDs = normalizeImageAttachmentProcessorSelection(
+          filterAvailableMCPToolIDs(
+            parseDefaultMCPToolIDs(settings[DEFAULT_MCP_TOOLS_SETTING_KEY]),
+            tools,
+            mcpMaxSelectedTools,
+          ),
           tools,
         );
         setAvailableTools(tools);
         setDefaultToolIDs(userDefaultToolIDs);
-        const availableIDs = new Set(tools.map((item) => item.id));
-        setSelectedToolIDs((previous) => previous.filter((id) => availableIDs.has(id)));
+        setSelectedToolIDs((previous) => normalizeImageAttachmentProcessorSelection(
+          filterAvailableMCPToolIDs(previous, tools, mcpMaxSelectedTools),
+          tools,
+        ));
       } catch {
         if (!cancelled) {
           setAvailableTools([]);
@@ -554,10 +589,16 @@ export function AppChatArea() {
     return () => {
       cancelled = true;
     };
-  }, [conversationID, setSelectedToolIDs]);
+  }, [conversationID, mcpMaxSelectedTools, setSelectedToolIDs]);
 
   const onDefaultToolIDsChange = React.useCallback(async (nextToolIDs: number[]) => {
     const nextDefaults = filterAvailableMCPToolIDs(nextToolIDs, availableTools, mcpMaxSelectedTools);
+    if (hasMultipleImageAttachmentProcessors(nextDefaults, availableTools)) {
+      toast.error(t("composer.mcpImageProcessorLimitTitle"), {
+        description: t("composer.mcpImageProcessorLimitDescription"),
+      });
+      return;
+    }
     const previousDefaults = defaultToolIDs;
     setDefaultToolIDs(nextDefaults);
     try {
