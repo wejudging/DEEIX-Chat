@@ -292,6 +292,7 @@ func TestResumeMessageGenerationStreamWritesHeartbeatWhileWaiting(t *testing.T) 
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 	const (
 		runID  = "run_resume_heartbeat"
