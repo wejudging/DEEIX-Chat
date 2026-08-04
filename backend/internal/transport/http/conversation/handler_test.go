@@ -133,7 +133,7 @@ func TestMapStreamErrorDoesNotExposeUpstreamUnauthorizedAsPlatformUnauthorized(t
 	}
 }
 
-	func TestMapStreamErrorReturnsContextBudgetExceeded(t *testing.T) {
+func TestMapStreamErrorReturnsContextBudgetExceeded(t *testing.T) {
 	err := &appconversation.ContextBudgetError{
 		EstimatedTokens: 195_676,
 		BudgetTokens:    178_808,
@@ -185,8 +185,9 @@ func TestHandleSendMessageErrorReturnsContextBudgetDetails(t *testing.T) {
 	if !ok || details["estimated_tokens"] != float64(195_676) || details["budget_tokens"] != float64(178_808) {
 		t.Fatalf("unexpected details: %#v", payload.Details)
 	}
+}
 
-	func TestMapStreamErrorClassifiesGeneratedMediaArtifactFailure(t *testing.T) {
+func TestMapStreamErrorClassifiesGeneratedMediaArtifactFailure(t *testing.T) {
 	mapped := mapStreamError(appconversation.ErrGeneratedMediaArtifactUnavailable)
 	if mapped.Status != http.StatusBadGateway {
 		t.Fatalf("expected artifact failure to be mapped to gateway failure, got status=%d", mapped.Status)
