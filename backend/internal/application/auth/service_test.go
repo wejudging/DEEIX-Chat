@@ -48,7 +48,7 @@ func (r userViewBillingResolverStub) ListBillingAccountSnapshots(_ context.Conte
 }
 
 func TestBuildUserViewIncludesBillingAccountWithoutSubscription(t *testing.T) {
-	service := NewService(config.Config{}, &userViewRepoStub{}, nil)
+	service := newTestService(config.Config{}, &userViewRepoStub{}, nil)
 	service.SetSubscriptionResolver(userViewBillingResolverStub{
 		account: billing.UserBillingAccountSnapshot{
 			Currency:       "USD",
