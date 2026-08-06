@@ -2,6 +2,7 @@ package embedding
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	domainconversation "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/conversation"
@@ -9,6 +10,28 @@ import (
 	infraembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/embedding"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/security"
 )
+
+func TestIsEmbeddingChannelUnavailable(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "english gateway error", err: errors.New("embedding: API returned 500: get_channel_failed"), want: true},
+		{name: "english channel missing", err: errors.New("no available channel for model"), want: true},
+		{name: "chinese channel missing", err: errors.New("分组 auto 下模型 nemotron-3-embed-1b 的可用渠道不存在"), want: true},
+		{name: "chinese no channel", err: errors.New("没有可用渠道"), want: true},
+		{name: "timeout is transient", err: errors.New("embedding: http: context deadline exceeded"), want: false},
+		{name: "nil", err: nil, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isEmbeddingChannelUnavailable(tt.err); got != tt.want {
+				t.Fatalf("isEmbeddingChannelUnavailable(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestShouldTriggerIncludesOCRImages(t *testing.T) {
 	service := NewService(config.Config{

@@ -9,6 +9,7 @@ import (
 
 	appbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/billing"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/channel"
+	appembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/embedding"
 	domainbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/billing"
 	model "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/conversation"
 	infraembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/embedding"
@@ -56,6 +57,9 @@ func (s *Service) embedMessagePair(ctx context.Context, conversationID uint, use
 	}
 	embeddings, err := s.embeddingSvc.EmbedTexts(ctx, texts)
 	if err != nil {
+		if errors.Is(err, appembedding.ErrEmbeddingCoolingDown) {
+			return
+		}
 		s.logger.Warn("embed_message_pair_failed", zap.Error(err))
 		return
 	}

@@ -373,15 +373,45 @@ func (s *Service) noteEmbeddingFailure(err error) {
 	if s == nil || err == nil {
 		return
 	}
-	message := strings.ToLower(err.Error())
-	if !strings.Contains(message, "get_channel_failed") &&
-		!strings.Contains(message, "no available channel") {
+	if !isEmbeddingChannelUnavailable(err) {
 		return
 	}
 	s.stateMu.Lock()
 	s.cooldownTil = time.Now().Add(embeddingFailureCooldown)
 	s.cooldownErr = err.Error()
 	s.stateMu.Unlock()
+}
+
+// isEmbeddingChannelUnavailable identifies provider errors that are caused by
+// a missing or unusable model channel. These are configuration failures, so
+// retrying every queued file only creates avoidable upstream traffic. Providers
+// may return the same condition in English or Chinese, depending on the
+// gateway in front of the embedding model.
+func isEmbeddingChannelUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	for _, marker := range []string{
+		"get_channel_failed",
+		"no available channel",
+		"no available channels",
+		"no channel available",
+		"channel not found",
+		"channel_not_found",
+		"model not found",
+		"model_not_found",
+		"无可用渠道",
+		"没有可用渠道",
+		"可用渠道不存在",
+		"渠道不存在",
+		"模型不存在",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) clearEmbeddingCooldown() {
