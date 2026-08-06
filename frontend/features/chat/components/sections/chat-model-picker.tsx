@@ -400,7 +400,7 @@ function ChatModelMenuItem({
       className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-transparent px-2 py-0 text-left text-[11px] font-medium leading-none text-inherit outline-none"
       onClick={onSelect}
     >
-      <LobeHubIcon iconUrl={iconURL} label={platformModelName} />
+      <ModelIcon iconUrl={iconURL} label={platformModelName} />
       <span className="min-w-0 flex-1 truncate leading-4">
         {platformModelName}
       </span>
