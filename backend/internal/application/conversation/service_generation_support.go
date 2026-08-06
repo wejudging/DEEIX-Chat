@@ -11,6 +11,7 @@ import (
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/channel"
 	domainbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/billing"
 	model "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/conversation"
+	infraembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/embedding"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/llm"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/repository"
 	"github.com/google/uuid"
@@ -24,30 +25,32 @@ func (s *Service) embedMessagePair(ctx context.Context, conversationID uint, use
 	}
 	chunks := make([]model.MessageChunk, 0, 2)
 	texts := make([]string, 0, 2)
-	if userMsg != nil && strings.TrimSpace(userMsg.Content) != "" {
+	appendMessageChunk := func(message *model.Message, role string) {
+		if message == nil || strings.TrimSpace(message.Content) == "" {
+			return
+		}
+		if len([]rune(message.Content)) > infraembedding.MaxInputCharacters {
+			if s.logger != nil {
+				s.logger.Debug("embed_message_skipped_oversized",
+					zap.Uint("message_id", message.ID),
+					zap.Int("characters", len([]rune(message.Content))),
+				)
+			}
+			return
+		}
 		chunks = append(chunks, model.MessageChunk{
 			ConversationID: conversationID,
-			MessageID:      userMsg.ID,
+			MessageID:      message.ID,
 			UserID:         userID,
-			Role:           "user",
+			Role:           role,
 			ChunkIndex:     0,
-			Content:        userMsg.Content,
-			TokenCount:     int(estimateTokens(userMsg.Content)),
+			Content:        message.Content,
+			TokenCount:     int(estimateTokens(message.Content)),
 		})
-		texts = append(texts, userMsg.Content)
+		texts = append(texts, message.Content)
 	}
-	if assistantMsg != nil && strings.TrimSpace(assistantMsg.Content) != "" {
-		chunks = append(chunks, model.MessageChunk{
-			ConversationID: conversationID,
-			MessageID:      assistantMsg.ID,
-			UserID:         userID,
-			Role:           "assistant",
-			ChunkIndex:     0,
-			Content:        assistantMsg.Content,
-			TokenCount:     int(estimateTokens(assistantMsg.Content)),
-		})
-		texts = append(texts, assistantMsg.Content)
-	}
+	appendMessageChunk(userMsg, "user")
+	appendMessageChunk(assistantMsg, "assistant")
 	if len(chunks) == 0 {
 		return
 	}

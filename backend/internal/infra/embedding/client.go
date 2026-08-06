@@ -33,6 +33,11 @@ type responsePayload struct {
 	} `json:"data"`
 }
 
+// MaxInputCharacters is kept below the common upstream embedding limit so a
+// provider cannot reject an otherwise valid request after it crosses a byte
+// versus character boundary.
+const MaxInputCharacters = 60000
+
 // ---------------------------------------------------------------------------
 // 客户端
 // ---------------------------------------------------------------------------
@@ -70,6 +75,11 @@ func (c *Client) CallAPI(
 ) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
+	}
+	for index, text := range texts {
+		if len([]rune(text)) > MaxInputCharacters {
+			return nil, fmt.Errorf("embedding: input[%d] exceeds maximum of %d characters", index, MaxInputCharacters)
+		}
 	}
 
 	body, err := json.Marshal(requestPayload{Model: model, Input: texts})
