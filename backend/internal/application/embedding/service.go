@@ -25,8 +25,8 @@ var ErrEmbeddingReindexInProgress = errors.New("embedding reindex already runnin
 var ErrEmbeddingCoolingDown = errors.New("embedding temporarily paused")
 
 const (
-	embeddingReindexWorkers   = 2
-	embeddingFailureCooldown  = 2 * time.Minute
+	embeddingReindexWorkers  = 2
+	embeddingFailureCooldown = 2 * time.Minute
 )
 
 // Service 封装文件 embedding 执行与状态管理能力。
