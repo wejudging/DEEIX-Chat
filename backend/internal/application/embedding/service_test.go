@@ -19,8 +19,8 @@ func TestIsEmbeddingChannelUnavailable(t *testing.T) {
 	}{
 		{name: "english gateway error", err: errors.New("embedding: API returned 500: get_channel_failed"), want: true},
 		{name: "english channel missing", err: errors.New("no available channel for model"), want: true},
-		{name: "chinese channel missing", err: errors.New("分组 auto 下模型 nemotron-3-embed-1b 的可用渠道不存在"), want: true},
-		{name: "chinese no channel", err: errors.New("没有可用渠道"), want: true},
+		{name: "chinese channel missing", err: errors.New("\u5206\u7ec4 auto \u4e0b\u6a21\u578b nemotron-3-embed-1b \u7684\u53ef\u7528\u6e20\u9053\u4e0d\u5b58\u5728"), want: true},
+		{name: "chinese no channel", err: errors.New("\u6ca1\u6709\u53ef\u7528\u6e20\u9053"), want: true},
 		{name: "timeout is transient", err: errors.New("embedding: http: context deadline exceeded"), want: false},
 		{name: "nil", err: nil, want: false},
 	}
