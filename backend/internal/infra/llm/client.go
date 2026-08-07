@@ -30,6 +30,8 @@ const (
 	EndpointImageGenerations = "image_generations"
 	// EndpointImageEdits 表示 OpenAI Images API 编辑端点。
 	EndpointImageEdits = "image_edits"
+	// EndpointVideoGenerations 表示异步视频生成端点。
+	EndpointVideoGenerations = "video_generations"
 	// EndpointInteractions 表示 Gemini Interactions API 端点。
 	EndpointInteractions = "interactions"
 )
@@ -663,10 +665,49 @@ type GeneratedImage struct {
 
 // GeneratedVideo 表示视频生成接口返回的一个视频结果。
 type GeneratedVideo struct {
-	URL      string
-	B64JSON  string
-	MIMEType string
-	FileName string
+	URL             string
+	B64JSON         string
+	MIMEType        string
+	FileName        string
+	DurationSeconds int64
+}
+
+// generatedMediaDurationSeconds 将上游媒体时长统一向上取整为可计费秒数。
+func generatedMediaDurationSeconds(values ...interface{}) int64 {
+	for _, value := range values {
+		var seconds float64
+		switch typed := value.(type) {
+		case int:
+			seconds = float64(typed)
+		case int64:
+			seconds = float64(typed)
+		case float64:
+			seconds = typed
+		case float32:
+			seconds = float64(typed)
+		case string:
+			text := strings.TrimSpace(strings.ToLower(typed))
+			for _, suffix := range []string{"seconds", "second", "secs", "sec", "s"} {
+				text = strings.TrimSuffix(text, suffix)
+			}
+			parsed, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
+			if err != nil {
+				continue
+			}
+			seconds = parsed
+		default:
+			continue
+		}
+		if seconds <= 0 {
+			continue
+		}
+		whole := int64(seconds)
+		if float64(whole) < seconds {
+			whole++
+		}
+		return whole
+	}
+	return 0
 }
 
 // ReasoningDelta 定义流式 reasoning 增量。
@@ -813,6 +854,7 @@ func NewClient(outboundPolicy security.OutboundPolicy) *Client {
 		AdapterXAIResponses:           &xAIResponsesAdapter{client: client},
 		AdapterXAIImage:               &xAIImageAdapter{client: client},
 		AdapterXAIImageEdits:          &xAIImageEditsAdapter{client: client},
+		AdapterXAIVideo:               &xAIVideoAdapter{client: client},
 		AdapterAnthropicMessages:      &anthropicMessagesAdapter{client: client},
 		AdapterGoogleGenerateContent:  &geminiGenerateContentAdapter{client: client},
 		AdapterGoogleImageGeneration:  &geminiImageGenerationAdapter{client: client},
@@ -1637,6 +1679,8 @@ func normalizeEndpoint(raw string) string {
 		return EndpointImageGenerations
 	case EndpointImageEdits:
 		return EndpointImageEdits
+	case EndpointVideoGenerations:
+		return EndpointVideoGenerations
 	case EndpointInteractions:
 		return EndpointInteractions
 	default:
