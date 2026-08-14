@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/extraction"
@@ -20,6 +21,13 @@ import (
 )
 
 var ErrEmbeddingServiceNotConfigured = errors.New("embedding service not configured")
+var ErrEmbeddingReindexInProgress = errors.New("embedding reindex already running")
+var ErrEmbeddingCoolingDown = errors.New("embedding temporarily paused")
+
+const (
+	embeddingReindexWorkers  = 2
+	embeddingFailureCooldown = 2 * time.Minute
+)
 
 // Service 封装文件 embedding 执行与状态管理能力。
 type Service struct {
@@ -28,6 +36,11 @@ type Service struct {
 	extractSvc  *extraction.Service
 	embedClient *infraembedding.Client
 	logger      *zap.Logger
+	embedSlots  chan struct{}
+	stateMu     sync.Mutex
+	cooldownTil time.Time
+	cooldownErr string
+	reindexBusy bool
 }
 
 // NewService 创建 embedding 服务。
@@ -46,6 +59,7 @@ func NewServiceWithRuntime(cfg *config.Runtime, repo repository.EmbeddingReposit
 		extractSvc:  extractSvc,
 		embedClient: embedClient,
 		logger:      logger,
+		embedSlots:  make(chan struct{}, embeddingReindexWorkers),
 	}
 }
 
@@ -127,6 +141,9 @@ func (s *Service) Trigger(fileObj domainconversation.FileObject) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		if err := s.ProcessFile(ctx, fileObj); err != nil && s.logger != nil {
+			if errors.Is(err, ErrEmbeddingCoolingDown) {
+				return
+			}
 			s.logger.Warn("embedding_failed",
 				zap.String("file_id", fileObj.FileID),
 				zap.Error(err),
@@ -285,6 +302,13 @@ func (s *Service) embedTexts(ctx context.Context, texts []string) ([][]float32, 
 	if s.embedClient == nil {
 		return nil, fmt.Errorf("embedding client not configured")
 	}
+	if err := s.cooldownError(); err != nil {
+		return nil, err
+	}
+	if err := s.acquireSlot(ctx); err != nil {
+		return nil, err
+	}
+	defer s.releaseSlot()
 
 	apiBase := strings.TrimRight(host, "/")
 	apiKey := strings.TrimSpace(cfg.EmbeddingKey)
@@ -301,6 +325,7 @@ func (s *Service) embedTexts(ctx context.Context, texts []string) ([][]float32, 
 		}
 		batchEmbeddings, batchErr := s.embedClient.CallAPI(ctx, apiBase, apiKey, model, texts[start:end], cfg.EmbeddingTimeoutSeconds)
 		if batchErr != nil {
+			s.noteEmbeddingFailure(batchErr)
 			return nil, batchErr
 		}
 		if len(batchEmbeddings) != end-start {
@@ -308,7 +333,95 @@ func (s *Service) embedTexts(ctx context.Context, texts []string) ([][]float32, 
 		}
 		allEmbeddings = append(allEmbeddings, batchEmbeddings...)
 	}
+	s.clearEmbeddingCooldown()
 	return postProcessEmbeddings(allEmbeddings, cfg.EmbeddingOutputDimensions, cfg.EmbeddingNormalize), nil
+}
+
+func (s *Service) acquireSlot(ctx context.Context) error {
+	if s == nil || s.embedSlots == nil {
+		return nil
+	}
+	select {
+	case s.embedSlots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *Service) releaseSlot() {
+	if s == nil || s.embedSlots == nil {
+		return
+	}
+	<-s.embedSlots
+}
+
+func (s *Service) cooldownError() error {
+	if s == nil {
+		return nil
+	}
+	s.stateMu.Lock()
+	until, reason := s.cooldownTil, s.cooldownErr
+	s.stateMu.Unlock()
+	if until.IsZero() || time.Now().After(until) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrEmbeddingCoolingDown, reason)
+}
+
+func (s *Service) noteEmbeddingFailure(err error) {
+	if s == nil || err == nil {
+		return
+	}
+	if !isEmbeddingChannelUnavailable(err) {
+		return
+	}
+	s.stateMu.Lock()
+	s.cooldownTil = time.Now().Add(embeddingFailureCooldown)
+	s.cooldownErr = err.Error()
+	s.stateMu.Unlock()
+}
+
+// isEmbeddingChannelUnavailable identifies provider errors that are caused by
+// a missing or unusable model channel. These are configuration failures, so
+// retrying every queued file only creates avoidable upstream traffic. Providers
+// may return the same condition in English or Chinese, depending on the
+// gateway in front of the embedding model.
+func isEmbeddingChannelUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	for _, marker := range []string{
+		"get_channel_failed",
+		"no available channel",
+		"no available channels",
+		"no channel available",
+		"channel not found",
+		"channel_not_found",
+		"model not found",
+		"model_not_found",
+		"无可用渠道",
+		"没有可用渠道",
+		"可用渠道不存在",
+		"渠道不存在",
+		"模型不存在",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) clearEmbeddingCooldown() {
+	if s == nil {
+		return
+	}
+	s.stateMu.Lock()
+	s.cooldownTil = time.Time{}
+	s.cooldownErr = ""
+	s.stateMu.Unlock()
 }
 
 func (s *Service) snapshot() config.Config {
@@ -380,6 +493,15 @@ func (s *Service) ReindexStaleFiles(ctx context.Context) (int, error) {
 	if s.repo == nil {
 		return 0, nil
 	}
+	if !s.beginReindex() {
+		return 0, ErrEmbeddingReindexInProgress
+	}
+	finishWithoutWorker := true
+	defer func() {
+		if finishWithoutWorker {
+			s.finishReindex()
+		}
+	}()
 	cfg := s.snapshot()
 	available, _, err := s.indexingAvailable(ctx, cfg)
 	if err != nil {
@@ -390,12 +512,12 @@ func (s *Service) ReindexStaleFiles(ctx context.Context) (int, error) {
 	}
 
 	const pageSize = 100
-	submitted := 0
+	filesForReindex := make([]domainconversation.FileObject, 0)
 	var afterID uint
 	for {
 		files, err := s.repo.ListFilesForReindex(ctx, pageSize, afterID)
 		if err != nil {
-			return submitted, err
+			return len(filesForReindex), err
 		}
 		if len(files) == 0 {
 			break
@@ -404,15 +526,72 @@ func (s *Service) ReindexStaleFiles(ctx context.Context) (int, error) {
 			if !canEmbedFile(cfg, f) {
 				continue
 			}
-			s.Trigger(f)
-			submitted++
+			filesForReindex = append(filesForReindex, f)
 		}
 		if len(files) < pageSize {
 			break
 		}
 		afterID = files[len(files)-1].ID
 	}
-	return submitted, nil
+	if len(filesForReindex) == 0 {
+		return 0, nil
+	}
+	// Run a bounded worker pool after the HTTP request returns. Launching one
+	// goroutine per file can overwhelm both Tika and the embedding provider.
+	finishWithoutWorker = false
+	go s.runReindex(filesForReindex, embeddingReindexWorkers)
+	return len(filesForReindex), nil
+}
+
+func (s *Service) beginReindex() bool {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	if s.reindexBusy {
+		return false
+	}
+	s.reindexBusy = true
+	return true
+}
+
+func (s *Service) finishReindex() {
+	s.stateMu.Lock()
+	s.reindexBusy = false
+	s.stateMu.Unlock()
+}
+
+func (s *Service) runReindex(files []domainconversation.FileObject, workerCount int) {
+	if len(files) == 0 {
+		s.finishReindex()
+		return
+	}
+	if workerCount <= 0 {
+		workerCount = 1
+	}
+	jobs := make(chan domainconversation.FileObject)
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			defer workers.Done()
+			for fileObj := range jobs {
+				fileCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				err := s.ProcessFile(fileCtx, fileObj)
+				cancel()
+				if err != nil && !errors.Is(err, ErrEmbeddingCoolingDown) && s.logger != nil {
+					s.logger.Warn("embedding_reindex_failed",
+						zap.String("file_id", fileObj.FileID),
+						zap.Error(err),
+					)
+				}
+			}
+		}()
+	}
+	for _, fileObj := range files {
+		jobs <- fileObj
+	}
+	close(jobs)
+	workers.Wait()
+	s.finishReindex()
 }
 
 func supportsEmbeddingSource(fileObj domainconversation.FileObject, cfg config.Config) bool {
