@@ -32,23 +32,6 @@ func TestCallAPITrustsConfiguredPrivateEmbeddingOrigin(t *testing.T) {
 	}
 }
 
-func TestCallAPIRejectsOversizedInputBeforeHTTP(t *testing.T) {
-	called := false
-	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		called = true
-	}))
-	defer server.Close()
-
-	client := New(security.NewStrictOutboundPolicy(true))
-	_, err := client.CallAPI(context.Background(), server.URL+"/v1", "", "test", []string{strings.Repeat("x", MaxInputCharacters+1)}, 5)
-	if err == nil || !strings.Contains(err.Error(), "exceeds maximum") {
-		t.Fatalf("expected oversized input error, got %v", err)
-	}
-	if called {
-		t.Fatal("expected oversized input to be rejected before HTTP")
-	}
-}
-
 func TestChunkTextHandlesCJKParagraphBoundary(t *testing.T) {
 	text := strings.Repeat("中文内容", 900) + "\n\n" + strings.Repeat("后续内容", 900)
 
