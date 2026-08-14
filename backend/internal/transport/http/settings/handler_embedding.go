@@ -110,10 +110,6 @@ func (h *Handler) TriggerReindex(c *gin.Context) {
 			response.ErrorFrom(c, http.StatusBadRequest, err)
 			return
 		}
-		if errors.Is(err, appembedding.ErrEmbeddingReindexInProgress) {
-			response.ErrorFrom(c, http.StatusConflict, err)
-			return
-		}
 		response.Error(c, http.StatusInternalServerError, "reindex failed")
 		return
 	}

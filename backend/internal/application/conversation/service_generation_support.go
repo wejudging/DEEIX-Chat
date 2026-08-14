@@ -9,10 +9,8 @@ import (
 
 	appbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/billing"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/channel"
-	appembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/embedding"
 	domainbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/billing"
 	model "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/conversation"
-	infraembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/embedding"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/llm"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/repository"
 	"github.com/google/uuid"
@@ -26,40 +24,35 @@ func (s *Service) embedMessagePair(ctx context.Context, conversationID uint, use
 	}
 	chunks := make([]model.MessageChunk, 0, 2)
 	texts := make([]string, 0, 2)
-	appendMessageChunk := func(message *model.Message, role string) {
-		if message == nil || strings.TrimSpace(message.Content) == "" {
-			return
-		}
-		if len([]rune(message.Content)) > infraembedding.MaxInputCharacters {
-			if s.logger != nil {
-				s.logger.Debug("embed_message_skipped_oversized",
-					zap.Uint("message_id", message.ID),
-					zap.Int("characters", len([]rune(message.Content))),
-				)
-			}
-			return
-		}
+	if userMsg != nil && strings.TrimSpace(userMsg.Content) != "" {
 		chunks = append(chunks, model.MessageChunk{
 			ConversationID: conversationID,
-			MessageID:      message.ID,
+			MessageID:      userMsg.ID,
 			UserID:         userID,
-			Role:           role,
+			Role:           "user",
 			ChunkIndex:     0,
-			Content:        message.Content,
-			TokenCount:     int(estimateTokens(message.Content)),
+			Content:        userMsg.Content,
+			TokenCount:     int(estimateTokens(userMsg.Content)),
 		})
-		texts = append(texts, message.Content)
+		texts = append(texts, userMsg.Content)
 	}
-	appendMessageChunk(userMsg, "user")
-	appendMessageChunk(assistantMsg, "assistant")
+	if assistantMsg != nil && strings.TrimSpace(assistantMsg.Content) != "" {
+		chunks = append(chunks, model.MessageChunk{
+			ConversationID: conversationID,
+			MessageID:      assistantMsg.ID,
+			UserID:         userID,
+			Role:           "assistant",
+			ChunkIndex:     0,
+			Content:        assistantMsg.Content,
+			TokenCount:     int(estimateTokens(assistantMsg.Content)),
+		})
+		texts = append(texts, assistantMsg.Content)
+	}
 	if len(chunks) == 0 {
 		return
 	}
 	embeddings, err := s.embeddingSvc.EmbedTexts(ctx, texts)
 	if err != nil {
-		if errors.Is(err, appembedding.ErrEmbeddingCoolingDown) {
-			return
-		}
 		s.logger.Warn("embed_message_pair_failed", zap.Error(err))
 		return
 	}
