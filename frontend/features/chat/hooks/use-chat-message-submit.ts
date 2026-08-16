@@ -1417,7 +1417,6 @@ export function useChatMessageSubmit({
         const errorDetails = resolveErrorDetails(error);
         const errorSummary = resolveErrorSummary(error, t("retryLater"));
         const errorCode = error instanceof ApiError ? error.errorCode : undefined;
-        failedGenerationRunsRef?.current.add(clientRunID);
         shouldKeepConversationLayout = true;
         if (
           resetComposer &&
