@@ -16,6 +16,7 @@ import (
 	appconversation "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/conversation"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/cache/memory"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/config"
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/repository"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -344,7 +345,7 @@ func TestResumeMessageGenerationStreamWritesHeartbeatWhileWaiting(t *testing.T) 
 	}
 
 	terminalPayload := `{"type":"completed","data":{}}`
-	if _, err := cache.AppendGenerationStreamEvent(context.Background(), runID, terminalPayload, 16, time.Minute); err != nil {
+	if _, err := cache.AppendGenerationStreamEvent(context.Background(), runID, repository.GenerationStreamAppend{PayloadJSON: terminalPayload}, 16, time.Minute); err != nil {
 		t.Fatalf("append terminal generation event: %v", err)
 	}
 	select {
