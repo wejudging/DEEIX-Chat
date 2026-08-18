@@ -26,50 +26,6 @@ type ActiveResumeStream = {
   accessToken: string | null;
 };
 
-type ResumeTextReplayState = {
-  baseContent: string;
-  replayedContent: string;
-  visibleContent: string;
-};
-
-function appendResumedTextDelta(state: ResumeTextReplayState, delta: string): string {
-  if (!delta) {
-    return state.visibleContent;
-  }
-
-  state.replayedContent += delta;
-  const { baseContent, replayedContent } = state;
-  if (!baseContent) {
-    state.visibleContent = replayedContent;
-    return state.visibleContent;
-  }
-
-  if (
-    replayedContent === baseContent ||
-    baseContent.startsWith(replayedContent) ||
-    baseContent.includes(replayedContent)
-  ) {
-    state.visibleContent = baseContent;
-    return state.visibleContent;
-  }
-
-  if (replayedContent.startsWith(baseContent)) {
-    state.visibleContent = replayedContent;
-    return state.visibleContent;
-  }
-
-  const maxOverlapLength = Math.min(baseContent.length, replayedContent.length);
-  for (let length = maxOverlapLength; length > 0; length -= 1) {
-    if (baseContent.endsWith(replayedContent.slice(0, length))) {
-      state.visibleContent = `${baseContent}${replayedContent.slice(length)}`;
-      return state.visibleContent;
-    }
-  }
-
-  state.visibleContent = `${state.visibleContent}${delta}`;
-  return state.visibleContent;
-}
-
 export function useChatData(
   conversationID: string | null,
   {
@@ -92,12 +48,13 @@ export function useChatData(
   });
   const [reloadToken, setReloadToken] = React.useState(0);
   const [resumingRunID, setResumingRunID] = React.useState("");
+  const [resumingActivityLabel, setResumingActivityLabel] = React.useState("");
   const stateRef = React.useRef(state);
   stateRef.current = state;
   const previousConversationIDRef = React.useRef<string | null>(conversationID);
   const resumeSeqByRunRef = React.useRef<Record<string, number>>({});
   const pendingAssistantContentRef = React.useRef("");
-  const resumeTextReplayByRunRef = React.useRef<Record<string, ResumeTextReplayState>>({});
+  const resumedTextByRunRef = React.useRef<Record<string, string>>({});
   const activeResumeStreamRef = React.useRef<ActiveResumeStream | null>(null);
   // 恢复游标只在对应的可见内容仍被保留时有效，两者必须同步清理。
   const clearResumeCheckpoint = React.useCallback((runID: string) => {
@@ -106,7 +63,7 @@ export function useChatData(
       return;
     }
     delete resumeSeqByRunRef.current[normalizedRunID];
-    delete resumeTextReplayByRunRef.current[normalizedRunID];
+    delete resumedTextByRunRef.current[normalizedRunID];
   }, []);
 
   React.useEffect(() => {
@@ -337,6 +294,7 @@ export function useChatData(
       pendingRunIsActive
     ) {
       setResumingRunID("");
+      setResumingActivityLabel("");
       return;
     }
 
@@ -344,25 +302,22 @@ export function useChatData(
     let closed = false;
     const afterSeq = resumeSeqByRunRef.current[pendingRunID] ?? 0;
     const baseContent = pendingAssistantContentRef.current;
-    const resumeTextReplayByRun = resumeTextReplayByRunRef.current;
-    const clearResumeTextReplay = () => {
-      delete resumeTextReplayByRun[pendingRunID];
+    const resumedTextByRun = resumedTextByRunRef.current;
+    const clearResumedText = () => {
+      delete resumedTextByRun[pendingRunID];
     };
     const isResumeInactive = () => closed || controller.signal.aborted;
     const updateResumeState = (update: (current: ChatDataState) => ChatDataState) => {
       setState((current) => isResumeInactive() ? current : update(current));
     };
-    resumeTextReplayByRun[pendingRunID] = {
-      baseContent,
-      replayedContent: afterSeq > 0 ? baseContent : "",
-      visibleContent: baseContent,
-    };
+    resumedTextByRun[pendingRunID] = baseContent;
     activeResumeStreamRef.current = {
       controller,
       runID: pendingRunID,
       accessToken: null,
     };
     setResumingRunID(pendingRunID);
+    setResumingActivityLabel("");
 
     async function resume() {
       try {
@@ -373,7 +328,7 @@ export function useChatData(
         if (activeResumeStreamRef.current?.controller === controller) {
           activeResumeStreamRef.current.accessToken = token;
         }
-        const completed = await resumeMessageGenerationStream(token, pendingRunID, {
+        await resumeMessageGenerationStream(token, pendingRunID, {
           signal: controller.signal,
           afterSeq,
           onEventSeq: (seq) => {
@@ -383,6 +338,9 @@ export function useChatData(
             resumeSeqByRunRef.current[pendingRunID] = Math.max(resumeSeqByRunRef.current[pendingRunID] ?? 0, seq);
           },
           onMediaStatus: (event) => {
+            if (isResumeInactive()) {
+              return;
+            }
             const status = event.status.trim();
             const contentType = event.content_type === "video" ? "video" : "image";
             const activityLabel =
@@ -393,11 +351,12 @@ export function useChatData(
                   : status === "saving_artifact"
                     ? tSubmit(contentType === "video" ? "mediaStatus.videoSavingArtifact" : "mediaStatus.savingArtifact")
                     : event.message.trim() || status;
+            setResumingActivityLabel(activityLabel);
             updateResumeState((prev) => ({
               ...prev,
               messages: prev.messages.map((message) =>
                 message.runID === pendingRunID && message.role === "assistant" && message.status === "pending"
-                  ? { ...message, activityLabel, contentType }
+                  ? { ...message, contentType }
                   : message,
               ),
             }));
@@ -406,16 +365,32 @@ export function useChatData(
             if (isResumeInactive()) {
               return;
             }
-            clearResumeTextReplay();
+            clearResumedText();
             const previewMarkdown = buildMediaImagePreviewMarkdown(event, tSubmit("imagePreviewAlt"));
             if (!previewMarkdown) {
               return;
             }
+            setResumingActivityLabel("");
             updateResumeState((prev) => ({
               ...prev,
               messages: prev.messages.map((message) =>
                 message.runID === pendingRunID && message.role === "assistant" && message.status === "pending"
-                  ? { ...message, content: previewMarkdown, contentType: "image", activityLabel: "" }
+                  ? { ...message, content: previewMarkdown, contentType: "image" }
+                  : message,
+              ),
+            }));
+          },
+          onTextSnapshot: (content) => {
+            if (isResumeInactive()) {
+              return;
+            }
+            setResumingActivityLabel("");
+            resumedTextByRun[pendingRunID] = content;
+            updateResumeState((prev) => ({
+              ...prev,
+              messages: prev.messages.map((message) =>
+                message.runID === pendingRunID && message.role === "assistant" && message.status === "pending"
+                  ? { ...message, content, contentType: "text" }
                   : message,
               ),
             }));
@@ -424,16 +399,9 @@ export function useChatData(
             if (isResumeInactive()) {
               return;
             }
-            let replayState = resumeTextReplayByRun[pendingRunID];
-            if (!replayState) {
-              replayState = {
-                baseContent: "",
-                replayedContent: "",
-                visibleContent: "",
-              };
-              resumeTextReplayByRun[pendingRunID] = replayState;
-            }
-            const nextContent = appendResumedTextDelta(replayState, delta);
+            setResumingActivityLabel("");
+            const nextContent = `${resumedTextByRun[pendingRunID] ?? ""}${delta}`;
+            resumedTextByRun[pendingRunID] = nextContent;
             updateResumeState((prev) => ({
               ...prev,
               messages: prev.messages.map((message) =>
@@ -479,12 +447,45 @@ export function useChatData(
               ),
             }));
           },
+          onModerationChecking: () => {
+            if (!isResumeInactive()) {
+              setResumingActivityLabel(tSubmit("moderationChecking"));
+            }
+          },
+          onModerationBlocked: (event) => {
+            if (isResumeInactive()) {
+              return;
+            }
+            clearResumedText();
+            setResumingActivityLabel("");
+            const categories = Array.isArray(event.categories) ? event.categories : [];
+            updateResumeState((prev) => ({
+              ...prev,
+              messages: prev.messages.map((message) =>
+                message.runID === pendingRunID && message.role === "assistant"
+                  ? {
+                      ...message,
+                      status: "blocked",
+                      content: "",
+                      contentType: "text",
+                      attachments: "[]",
+                      processTrace: undefined,
+                      errorCode: "content_moderation.blocked",
+                      errorMessage: tSubmit("moderationBlockedDescription"),
+                      moderation: {
+                        state: "blocked",
+                        direction: event.direction,
+                        eventID: event.eventID,
+                        categories,
+                      },
+                    }
+                  : message,
+              ),
+            }));
+          },
         });
-        if (!controller.signal.aborted && completed === null) {
-          clearResumeCheckpoint(pendingRunID);
-          reload();
-        }
-        if (!controller.signal.aborted && completed) {
+        if (!controller.signal.aborted) {
+          setResumingActivityLabel("");
           clearResumeCheckpoint(pendingRunID);
           reload();
         }
@@ -492,6 +493,7 @@ export function useChatData(
         if (!controller.signal.aborted && error instanceof Error && error.name !== "AbortError") {
           clearResumeCheckpoint(pendingRunID);
           setResumingRunID("");
+          setResumingActivityLabel("");
           reload();
         }
       } finally {
@@ -500,6 +502,7 @@ export function useChatData(
         }
         if (!controller.signal.aborted && !closed) {
           setResumingRunID("");
+          setResumingActivityLabel("");
         }
       }
     }
@@ -508,6 +511,7 @@ export function useChatData(
     return () => {
       closed = true;
       controller.abort();
+      setResumingActivityLabel("");
       clearResumeCheckpoint(pendingRunID);
       if (activeResumeStreamRef.current?.controller === controller) {
         activeResumeStreamRef.current = null;
@@ -546,6 +550,7 @@ export function useChatData(
     loadAllOlderMessages,
     reload,
     replaceMessage,
+    resumingActivityLabel,
     resumingRunID,
   };
 }

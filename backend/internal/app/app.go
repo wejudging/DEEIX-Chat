@@ -45,6 +45,7 @@ import (
 	platformlogger "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/observability/logger"
 	platformtracing "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/observability/tracing"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/openwebui"
+	epaypayment "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/payment/epay"
 	stripepayment "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/payment/stripe"
 	filecache "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/filecache"
 	announcementrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/announcement"
@@ -213,8 +214,8 @@ func NewApp() (*App, error) {
 		openrouterpricing.New(cfg.StrictOutboundPolicy()),
 		filecache.NewOpenRouterPricingCache(runtimeCfg.Snapshot().StorageRootDir),
 	)
-	paymentCheckoutService := billing.NewPaymentCheckoutService(stripepayment.New(cfg.StrictOutboundPolicy()))
-	billingHandler := billinghttp.NewHandler(billingService, settingsService, runtimeCfg, officialPricingService, paymentCheckoutService)
+	paymentCheckoutService := billing.NewPaymentCheckoutService(stripepayment.New(cfg.StrictOutboundPolicy()), epaypayment.New())
+	billingHandler := billinghttp.NewHandler(billingService, settingsService, runtimeCfg, officialPricingService, paymentCheckoutService, log)
 	billingModule := billinghttp.NewModule(billingHandler)
 	objectStoreProvider := appstorage.NewRuntimeProvider(runtimeCfg, nil)
 	geoResolver := geoip.New(runtimeCfg.Snapshot())
@@ -251,6 +252,8 @@ func NewApp() (*App, error) {
 	mediaArtifactClient := mediaartifact.New(strictOutboundPolicy)
 	channelService := channel.NewServiceWithRuntime(runtimeCfg, channelRepo, channelRepo, channelCache, llmClient)
 	channelService.SetLogger(log)
+	channelService.SetObjectStoreProvider(objectStoreProvider)
+	channelService.SetModelIconAssetRepository(channelRepo)
 	channelService.SetBillingModelPricingFilter(billingService)
 	channelService.SetPermissionGroupRepo(channelRepo)
 	channelService.SetSubscriptionGroupResolver(&subscriptionGroupAdapter{billing: billingService})
@@ -391,6 +394,7 @@ func NewApp() (*App, error) {
 	backgroundCtx, backgroundCancel := context.WithCancel(context.Background())
 	conversationService.StartBackgroundWorkers(backgroundCtx)
 	contentModerationService.StartBackgroundWorkers(backgroundCtx)
+	channelService.StartModelIconAssetCleanup(backgroundCtx)
 
 	return &App{
 		cfg:                    runtimeCfg.Snapshot(),

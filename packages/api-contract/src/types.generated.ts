@@ -1100,7 +1100,7 @@ export interface CreateModelRequest {
   /** @maxLength 10000 */
   description?: string;
   displayGroupID?: number;
-  /** @maxLength 128 */
+  /** @maxLength 2048 */
   icon?: string;
   /** @maxLength 1000 */
   kindsJSON?: string;
@@ -1826,6 +1826,55 @@ export interface ModelDisplayGroupResponse {
   updatedAt: string;
 }
 
+export interface ModelIconAssetDeleteConflictDetails {
+  conversationRuns: number;
+  displayGroups: number;
+  models: number;
+  referenceCount: number;
+  vendors: number;
+}
+
+export interface ModelIconAssetDeleteConflictDoc {
+  data: any;
+  details: ModelIconAssetDeleteConflictDetails;
+  errorCode: string;
+  errorMsg: string;
+  requestId?: string;
+}
+
+export interface ModelIconAssetListItemResponse {
+  contentType: string;
+  createdAt: string;
+  height: number;
+  publicID: string;
+  ref: string;
+  sizeBytes: number;
+  width: number;
+}
+
+export interface ModelIconAssetListResponseDoc {
+  data: {
+    results: ModelIconAssetListItemResponse[];
+    total: number;
+  };
+  errorMsg: string;
+}
+
+export interface ModelIconAssetResponse {
+  contentType: string;
+  height: number;
+  publicID: string;
+  ref: string;
+  reused: boolean;
+  sizeBytes: number;
+  width: number;
+}
+
+export interface ModelIconAssetResponseDoc {
+  data: ModelIconAssetResponse;
+  errorMsg: string;
+}
+
 export interface ModelListResponseDoc {
   data: {
     results: ModelResponse[];
@@ -2022,12 +2071,31 @@ export interface ModelVendorDataResponseDoc {
   errorMsg: string;
 }
 
+export interface ModelVendorDeleteConflictDetails {
+  models: ModelVendorReferenceResponse[];
+  reason: "built_in" | "referenced_models";
+  referenceCount: number;
+}
+
+export interface ModelVendorDeleteConflictDoc {
+  data: any;
+  details: ModelVendorDeleteConflictDetails;
+  errorCode: string;
+  errorMsg: string;
+  requestId?: string;
+}
+
 export interface ModelVendorListResponseDoc {
   data: {
     results: ModelVendorResponse[];
     total: number;
   };
   errorMsg: string;
+}
+
+export interface ModelVendorReferenceResponse {
+  id: number;
+  platformModelName: string;
 }
 
 export interface ModelVendorResponse {
@@ -3187,7 +3255,7 @@ export interface UpdateModelRequest {
   /** @maxLength 10000 */
   description?: string;
   displayGroupID?: number;
-  /** @maxLength 128 */
+  /** @maxLength 2048 */
   icon?: string;
   /** @maxLength 1000 */
   kindsJSON?: string;
@@ -4419,6 +4487,8 @@ export namespace Admin {
       page?: number;
       /** Page size */
       pageSize?: number;
+      /** Exact event, user, run, model, result, or summary search */
+      query?: string;
       /** Result filter */
       result?: string;
       /** Run ID */
@@ -4601,6 +4671,68 @@ export namespace Admin {
   }
 
   /**
+   * @description 分页查询仍在图标库中的已上传图标，按上传时间倒序返回
+   * @tags llm
+   * @name LlmIconAssetsList
+   * @summary 管理员查询已上传的模型展示图标
+   * @request GET:/admin/llm/icon-assets
+   * @secure
+   */
+  export namespace LlmIconAssetsList {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /** 页码 */
+      page?: number;
+      /** 每页数量 */
+      page_size?: number;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = ModelIconAssetListResponseDoc;
+  }
+
+  /**
+   * @description 上传 PNG、JPEG 或 WebP 图标；后端校验内容、尺寸并按 SHA-256 去重
+   * @tags llm
+   * @name LlmIconAssetsCreate
+   * @summary 管理员上传模型展示图标
+   * @request POST:/admin/llm/icon-assets
+   * @secure
+   */
+  export namespace LlmIconAssetsCreate {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = {
+      /**
+       * 图标文件，最大 1 MiB
+       * @format binary
+       */
+      file: File;
+    };
+    export type RequestHeaders = {};
+    export type ResponseBody = ModelIconAssetResponseDoc;
+  }
+
+  /**
+   * @description 仅允许移除无引用图标；立即从图标库隐藏，持续 24 小时无引用后物理清理
+   * @tags llm
+   * @name LlmIconAssetsDelete
+   * @summary 管理员从图标库移除已上传图标
+   * @request DELETE:/admin/llm/icon-assets/{public_id}
+   * @secure
+   */
+  export namespace LlmIconAssetsDelete {
+    export type RequestParams = {
+      /** 图标公开 ID */
+      publicId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = SuccessDoc;
+  }
+
+  /**
    * @description 分页查询自定义展示分组；未绑定分组的模型继续按技术厂商展示
    * @tags llm
    * @name LlmModelDisplayGroupsList
@@ -4714,6 +4846,25 @@ export namespace Admin {
     export type RequestBody = CreateModelVendorRequest;
     export type RequestHeaders = {};
     export type ResponseBody = ModelVendorDataResponseDoc;
+  }
+
+  /**
+   * @description 仅允许删除未被平台模型引用的非内置厂商；冲突响应包含关联模型预览
+   * @tags llm
+   * @name LlmModelVendorsDelete
+   * @summary 管理员删除自定义模型技术厂商
+   * @request DELETE:/admin/llm/model-vendors/{key}
+   * @secure
+   */
+  export namespace LlmModelVendorsDelete {
+    export type RequestParams = {
+      /** 技术厂商 key */
+      key: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = SuccessDoc;
   }
 
   /**
@@ -7172,6 +7323,8 @@ export namespace ConversationRuns {
     export type RequestQuery = {
       /** 已接收的最后事件序号 */
       after?: number;
+      /** 是否返回可替换当前正文的权威文本快照 */
+      snapshot?: boolean;
     };
     export type RequestBody = never;
     export type RequestHeaders = {};
@@ -7496,6 +7649,27 @@ export namespace Conversations {
   }
 
   /**
+   * @description 将会话从开头到指定消息（含）的祖先链复制为一个新会话；不携带原会话的运行记录与计费，附件以引用方式复用
+   * @tags chat
+   * @name MessagesForkCreate
+   * @summary 从指定消息 fork 新会话
+   * @request POST:/conversations/{id}/messages/{message_id}/fork
+   * @secure
+   */
+  export namespace MessagesForkCreate {
+    export type RequestParams = {
+      /** 会话 public_id */
+      id: string;
+      /** 消息 public_id */
+      messageId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = ConversationUpdateResponseDoc;
+  }
+
+  /**
    * @description 设置当前用户单个会话的项目归属
    * @tags chat
    * @name ProjectPartialUpdate
@@ -7774,6 +7948,26 @@ export namespace Files {
     export type RequestParams = {
       /** 文件ID */
       fileId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = Blob;
+  }
+}
+
+export namespace Llm {
+  /**
+   * @description 公开读取经过后端校验的不可变模型展示图标
+   * @tags llm
+   * @name IconAssetsDetail
+   * @summary 读取模型展示图标
+   * @request GET:/llm/icon-assets/{public_id}
+   */
+  export namespace IconAssetsDetail {
+    export type RequestParams = {
+      /** 图标公开 ID */
+      publicId: string;
     };
     export type RequestQuery = {};
     export type RequestBody = never;
