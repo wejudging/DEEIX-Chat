@@ -2,23 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Banknote, ChevronDown, CircleAlert, CreditCard, Film } from "lucide-react";
+import { Banknote, ChevronDown, CircleAlert, CreditCard, Film, GalleryHorizontalEnd } from "lucide-react";
 import { useTranslations } from "next-intl";
-
-import { AssistantMessageMeta } from "@/features/chat/components/message/message-meta";
-import { MessageAttachmentRow } from "@/features/chat/components/message/message-attachment";
-import { MessageKnowledgeSources } from "@/features/chat/components/message/message-knowledge-sources";
-import { MessageProcessTrace, MessageTraceEventBlocks } from "@/features/chat/components/message/message-process-trace";
 import { GrainientBackground } from "@/components/reactbits/backgrounds/grainient";
-import type { AssistantReaction } from "@/features/chat/components/message/message-meta";
-import type {
-  ChatAreaMessage,
-  ChatInlineAlert,
-  MessageAttachment,
-} from "@/features/chat/types/messages";
-import { MarkdownImage, type MarkdownArtifactActions } from "@/shared/components/markdown/streamdown-components";
-import { StreamdownRender } from "@/shared/components/markdown/streamdown-render";
-import { PreviewMedia } from "@/shared/components/file-preview/preview-media";
 import {
   Accordion,
   AccordionContent,
@@ -32,20 +18,34 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import { isUpstreamStreamingDebugBody, summarizeUpstreamError } from "@/features/chat/utils/chat-runtime";
-import { fetchFileContent, type FileContentResult } from "@/shared/api/file";
-import type { PreviewDialogFile } from "@/shared/components/file-preview/preview-dialog";
-import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
-import { useLocalizedErrorMessage } from "@/i18n/use-localized-error";
+import { MessageAttachmentRow } from "@/features/chat/components/message/message-attachment";
+import { MessageKnowledgeSources } from "@/features/chat/components/message/message-knowledge-sources";
+import type { AssistantReaction } from "@/features/chat/components/message/message-meta";
+import { AssistantMessageMeta } from "@/features/chat/components/message/message-meta";
+import { MessageProcessTrace, MessageTraceEventBlocks } from "@/features/chat/components/message/message-process-trace";
 import { resolveLeadingImagePreview } from "@/features/chat/model/media-image-preview";
 import {
   clearLiveUpstreamThinkTrace,
   mergeLiveUpstreamThinkTrace,
   useLiveUpstreamThinkTrace,
 } from "@/features/chat/model/upstream-think-store";
-import type { BillingDisplayCurrency } from "@/shared/lib/billing-display";
+import type {
+  ChatAreaMessage,
+  ChatInlineAlert,
+  MessageAttachment,
+} from "@/features/chat/types/messages";
+import { isUpstreamStreamingDebugBody, summarizeUpstreamError } from "@/features/chat/utils/chat-runtime";
+import { useLocalizedErrorMessage } from "@/i18n/use-localized-error";
+import { cn } from "@/lib/utils";
+import { type FileContentResult, fetchFileContent } from "@/shared/api/file";
+import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
+import type { PreviewDialogFile } from "@/shared/components/file-preview/preview-dialog";
+import { PreviewMedia } from "@/shared/components/file-preview/preview-media";
+import { type MarkdownArtifactActions, MarkdownImage } from "@/shared/components/markdown/streamdown-components";
+import { StreamdownRender } from "@/shared/components/markdown/streamdown-render";
+import { MediaActionBar, MediaActionButton } from "@/shared/components/media-action-bar";
 import { useBranding } from "@/shared/config/branding-provider";
+import type { BillingDisplayCurrency } from "@/shared/lib/billing-display";
 
 const EMPTY_TRACE_EVENTS: NonNullable<ChatAreaMessage["processTrace"]>["events"] = [];
 
@@ -67,6 +67,16 @@ function isVideoAttachment(attachment: MessageAttachment): boolean {
     attachment.fileCategory === "video" ||
     mimeType.startsWith("video/") ||
     detectedMime.startsWith("video/")
+  );
+}
+
+function isMP4VideoAttachment(attachment: MessageAttachment): boolean {
+  const mimeType = attachment.mimeType.toLowerCase();
+  const detectedMime = attachment.detectedMime?.toLowerCase() || "";
+  return (
+    mimeType === "video/mp4" ||
+    detectedMime === "video/mp4" ||
+    attachment.fileName.toLowerCase().endsWith(".mp4")
   );
 }
 
@@ -147,6 +157,7 @@ type ChatMessageBotProps = {
   readOnly?: boolean;
   attachmentContentLoader?: (file: PreviewDialogFile) => Promise<FileContentResult>;
   onEditImageAttachment?: (attachment: MessageAttachment, sourceModelName?: string) => void;
+  onExtendVideoAttachment?: (attachment: MessageAttachment, sourceModelName?: string) => void;
   artifactActions?: MarkdownArtifactActions;
   showBranchNavigator?: boolean;
   contentWidthClassName?: string;
@@ -175,6 +186,7 @@ export function ChatMessageBot({
   readOnly = false,
   attachmentContentLoader,
   onEditImageAttachment,
+  onExtendVideoAttachment,
   artifactActions,
   showBranchNavigator = true,
   contentWidthClassName = "max-w-[1080px]",
@@ -240,6 +252,15 @@ export function ChatMessageBot({
         : item.attachments ?? [],
     [inlineVideoAttachment, item.attachments],
   );
+  const extendableVideoAttachment =
+    inlineVideoAttachment && isMP4VideoAttachment(inlineVideoAttachment)
+      ? inlineVideoAttachment
+      : null;
+  const onExtendVideo = React.useCallback(() => {
+    if (extendableVideoAttachment) {
+      onExtendVideoAttachment?.(extendableVideoAttachment, item.platformModelName);
+    }
+  }, [extendableVideoAttachment, item.platformModelName, onExtendVideoAttachment]);
   const hideGeneratedVideoMarkdown = inlineVideoAttachment
     ? isGeneratedVideoMarkdownContent(item.content, item.attachments ?? [])
     : false;
@@ -390,7 +411,15 @@ export function ChatMessageBot({
       </div>
 
       {inlineVideoAttachment ? (
-        <MessageInlineVideoPreview attachment={inlineVideoAttachment} loadContent={attachmentContentLoader} />
+        <MessageInlineVideoPreview
+          attachment={inlineVideoAttachment}
+          loadContent={attachmentContentLoader}
+          onExtend={
+            onExtendVideoAttachment && extendableVideoAttachment
+              ? onExtendVideo
+              : undefined
+          }
+        />
       ) : null}
 
       {item.inlineAlert ? (
@@ -742,24 +771,42 @@ type InlineVideoPreviewState =
   | { status: "error"; message: string }
   | { status: "ready"; source: string; contentType: string };
 
+function InlineVideoLoadingPlaceholder() {
+  return (
+    <div className="my-4 flex aspect-video w-full max-w-[40rem] items-center justify-center overflow-hidden rounded-xl bg-muted/20">
+      <span className="size-4 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/55" />
+    </div>
+  );
+}
+
 function MessageInlineVideoPreview({
   attachment,
   loadContent,
+  onExtend,
 }: {
   attachment: MessageAttachment;
   loadContent?: (file: PreviewDialogFile) => Promise<FileContentResult>;
+  onExtend?: () => void;
 }) {
   const tPreview = useTranslations("files.previewDialog");
   const tMessages = useTranslations("chat.messages");
   const resolveErrorMessage = useLocalizedErrorMessage();
   const objectURLRef = React.useRef<string | null>(null);
-  const [state, setState] = React.useState<InlineVideoPreviewState>({ status: "loading" });
   const fileID = attachment.fileID;
   const fileName = attachment.fileName;
   const mimeType = attachment.mimeType;
   const detectedMime = attachment.detectedMime;
   const previewURL = attachment.previewURL;
   const sizeBytes = attachment.sizeBytes;
+  const [state, setState] = React.useState<InlineVideoPreviewState>(() =>
+    previewURL
+      ? {
+          status: "ready",
+          source: previewURL,
+          contentType: detectedMime || mimeType,
+        }
+      : { status: "loading" },
+  );
   const revokeObjectURL = React.useCallback(() => {
     if (!objectURLRef.current) {
       return;
@@ -841,7 +888,7 @@ function MessageInlineVideoPreview({
   ]);
 
   if (state.status === "loading") {
-    return <AssistantVideoGenerationSkeleton label={tMessages("processing")} />;
+    return <InlineVideoLoadingPlaceholder />;
   }
 
   if (state.status === "error") {
@@ -854,7 +901,7 @@ function MessageInlineVideoPreview({
   }
 
   return (
-    <div className="my-4 w-full max-w-[40rem]">
+    <div className="group relative my-4 w-full max-w-[40rem]">
       <PreviewMedia
         kind="video"
         source={state.source}
@@ -862,6 +909,13 @@ function MessageInlineVideoPreview({
         contentType={state.contentType}
         inline
       />
+      {onExtend ? (
+        <MediaActionBar className="absolute right-2 top-2">
+          <MediaActionButton label={tMessages("extendVideo")} onClick={onExtend}>
+            <GalleryHorizontalEnd className="size-3.5" />
+          </MediaActionButton>
+        </MediaActionBar>
+      ) : null}
     </div>
   );
 }
