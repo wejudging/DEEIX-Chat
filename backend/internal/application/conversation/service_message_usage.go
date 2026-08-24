@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/config"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/llm"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/pkg/traceid"
 	"go.uber.org/zap"
@@ -150,8 +151,28 @@ func validateGenerateInputContextBudget(
 	capabilitiesJSON string,
 	stage string,
 ) error {
+	return validateGenerateInputContextBudgetWithFallback(
+		input,
+		modelName,
+		capabilitiesJSON,
+		config.DefaultContextWindowFallbackTokens,
+		stage,
+	)
+}
+
+func validateGenerateInputContextBudgetWithFallback(
+	input llm.GenerateInput,
+	modelName string,
+	capabilitiesJSON string,
+	fallbackContextWindow int,
+	stage string,
+) error {
 	estimatedTokens := estimateGenerateInputTokens(input)
-	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilities(modelName, capabilitiesJSON))
+	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(
+		modelName,
+		capabilitiesJSON,
+		fallbackContextWindow,
+	))
 	if estimatedTokens <= budgetTokens {
 		return nil
 	}
@@ -169,7 +190,25 @@ func trimGenerateInputHistoryToContextBudget(
 	modelName string,
 	capabilitiesJSON string,
 ) (llm.GenerateInput, bool) {
-	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilities(modelName, capabilitiesJSON))
+	return trimGenerateInputHistoryToContextBudgetWithFallback(
+		input,
+		modelName,
+		capabilitiesJSON,
+		config.DefaultContextWindowFallbackTokens,
+	)
+}
+
+func trimGenerateInputHistoryToContextBudgetWithFallback(
+	input llm.GenerateInput,
+	modelName string,
+	capabilitiesJSON string,
+	fallbackContextWindow int,
+) (llm.GenerateInput, bool) {
+	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(
+		modelName,
+		capabilitiesJSON,
+		fallbackContextWindow,
+	))
 	if estimateGenerateInputTokens(input) <= budgetTokens {
 		return input, false
 	}

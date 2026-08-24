@@ -888,10 +888,11 @@ func (s *Service) sendMessageInternal(
 	// Re-check the complete prompt shape before deciding whether a previous
 	// response can be reused, and retain the trim state for compaction telemetry.
 	initialHistoryTrimmed := false
-	trimmedInitialInput, historyTrimmed := trimGenerateInputHistoryToContextBudget(
+	trimmedInitialInput, historyTrimmed := trimGenerateInputHistoryToContextBudgetWithFallback(
 		generateInput,
 		route.UpstreamModel,
 		route.ModelCapabilitiesJSON,
+		cfg.ContextWindowFallbackTokens,
 	)
 	if historyTrimmed {
 		generateInput = trimmedInitialInput
@@ -901,7 +902,13 @@ func (s *Service) sendMessageInternal(
 		initialHistoryTrimmed = true
 		estimatedPromptTokens = estimateGenerateInputTokens(generateInput)
 	}
-	if err := validateGenerateInputContextBudget(generateInput, route.UpstreamModel, route.ModelCapabilitiesJSON, "initial_full"); err != nil {
+	if err := validateGenerateInputContextBudgetWithFallback(
+		generateInput,
+		route.UpstreamModel,
+		route.ModelCapabilitiesJSON,
+		cfg.ContextWindowFallbackTokens,
+		"initial_full",
+	); err != nil {
 		retErr = err
 		return nil, err
 	}
@@ -989,17 +996,24 @@ func (s *Service) sendMessageInternal(
 		// Stateful requests carry the earlier context on the provider side, so
 		// only full-context forms are eligible for local history trimming here.
 		if strings.TrimSpace(prepared.PreviousResponseID) == "" {
-			trimmed, changed := trimGenerateInputHistoryToContextBudget(
+			trimmed, changed := trimGenerateInputHistoryToContextBudgetWithFallback(
 				prepared,
 				route.UpstreamModel,
 				route.ModelCapabilitiesJSON,
+				cfg.ContextWindowFallbackTokens,
 			)
 			if changed {
 				prepared = trimmed
 				historyTrimmedForRun = true
 			}
 		}
-		if err := validateGenerateInputContextBudget(prepared, route.UpstreamModel, route.ModelCapabilitiesJSON, stage); err != nil {
+		if err := validateGenerateInputContextBudgetWithFallback(
+			prepared,
+			route.UpstreamModel,
+			route.ModelCapabilitiesJSON,
+			cfg.ContextWindowFallbackTokens,
+			stage,
+		); err != nil {
 			return currentInput, err
 		}
 		return prepared, nil
@@ -1362,10 +1376,11 @@ func (s *Service) sendMessageInternal(
 		}
 		fullLLMMessages = cloneLLMMessages(llmMessages)
 		applyOpenAIResponsesInstructions(route, routeConfig.Endpoint, &generateInput)
-		trimmedRouteInput, routeHistoryTrimmed := trimGenerateInputHistoryToContextBudget(
+		trimmedRouteInput, routeHistoryTrimmed := trimGenerateInputHistoryToContextBudgetWithFallback(
 			generateInput,
 			route.UpstreamModel,
 			route.ModelCapabilitiesJSON,
+			cfg.ContextWindowFallbackTokens,
 		)
 		if routeHistoryTrimmed {
 			generateInput = trimmedRouteInput
@@ -1374,7 +1389,13 @@ func (s *Service) sendMessageInternal(
 			generateInput.Messages = llmMessages
 			historyTrimmedForRun = true
 		}
-		if err := validateGenerateInputContextBudget(generateInput, route.UpstreamModel, route.ModelCapabilitiesJSON, "route_failover"); err != nil {
+		if err := validateGenerateInputContextBudgetWithFallback(
+			generateInput,
+			route.UpstreamModel,
+			route.ModelCapabilitiesJSON,
+			cfg.ContextWindowFallbackTokens,
+			"route_failover",
+		); err != nil {
 			retErr = err
 			return nil, err
 		}
