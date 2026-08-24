@@ -302,7 +302,7 @@ func TestResumeMessageGenerationStreamWritesHeartbeatWhileWaiting(t *testing.T) 
 	if err := cache.RegisterGenerationStream(context.Background(), runID, userID, "conv_resume_heartbeat", time.Minute); err != nil {
 		t.Fatalf("register generation stream: %v", err)
 	}
-	if err := cache.TouchGenerationStreamActive(context.Background(), runID, time.Minute); err != nil {
+	if err := cache.TouchGenerationStreamActive(context.Background(), runID, userID, time.Minute); err != nil {
 		t.Fatalf("activate generation stream: %v", err)
 	}
 
