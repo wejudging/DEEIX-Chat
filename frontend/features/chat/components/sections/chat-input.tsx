@@ -991,8 +991,9 @@ function ChatInputComponent({
 									{showMarkdownPreview ? tComposer("hideMarkdownPreview") : tComposer("previewMarkdown")}
 									</DropdownMenuItem>
 								) : null}
-							</DropdownMenuContent>
-						</DropdownMenu>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				) : null}
 
               {!modelOptionPolicyDisabled ? (
                 <ChatModelConfig
