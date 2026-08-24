@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 
 type ChatEmptyStateProps = {
   greetingTitle: string;
-  badgeLabel?: string;
-  badgeTooltip?: string;
-  notice?: React.ReactNode;
+	badgeLabel?: string;
+	badgeTooltip?: string;
+	notice?: React.ReactNode;
+	titleAdornment?: React.ReactNode;
   contentWidthClassName?: string;
   children?: React.ReactNode;
 };
@@ -21,7 +22,15 @@ const CHAT_EMPTY_TEXT_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
-export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, notice, contentWidthClassName = "max-w-[1080px]", children }: ChatEmptyStateProps) {
+export function ChatEmptyState({
+	greetingTitle,
+	badgeLabel,
+	badgeTooltip,
+	notice,
+	titleAdornment,
+  contentWidthClassName = "max-w-[1080px]",
+  children,
+}: ChatEmptyStateProps) {
   const badge = badgeLabel ? (
     <span className="absolute left-full top-0 ml-1.5">
       <Badge
@@ -35,17 +44,21 @@ export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, notice
   const titleGroupKey = `${greetingTitle}:${badgeLabel ?? ""}`;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col items-center justify-center px-3 py-12 text-center md:px-6 md:py-20">
-      {notice ? (
-        <div className="absolute inset-x-3 top-3 z-10 flex justify-center md:top-5">
-          {notice}
-        </div>
-      ) : null}
-      <motion.div layout className="relative inline-flex max-w-[calc(100%-4.5rem)] justify-center">
+		<div className="relative flex h-full min-h-0 flex-col items-center justify-center px-3 py-12 text-center md:px-6 md:py-20">
+			{notice ? (
+				<div className="absolute inset-x-3 top-3 z-10 flex justify-center md:top-5">
+					{notice}
+				</div>
+			) : null}
+			<motion.div
+				layout="position"
+				transition={CHAT_EMPTY_TEXT_TRANSITION}
+				className="relative inline-flex max-w-[calc(100%-4.5rem)] justify-center"
+			>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={titleGroupKey}
-            className="relative inline-flex min-w-0 justify-center"
+            className="relative inline-flex min-w-0 items-center justify-center"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
@@ -54,6 +67,20 @@ export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, notice
             <h1 className="min-w-0 text-balance text-[22px] font-medium leading-[1.12] tracking-[-0.005em] text-foreground [font-family:var(--font-economist)] md:text-[32px]">
               {greetingTitle}
             </h1>
+            <AnimatePresence initial={false}>
+              {titleAdornment ? (
+                <motion.span
+                  key="title-adornment"
+                  className="absolute right-full mr-2 inline-flex items-center"
+                  initial={{ opacity: 0, rotate: -24, scale: 0.9, y: -5 }}
+                  animate={{ opacity: 1, rotate: -24, scale: 1, y: -5 }}
+                  exit={{ opacity: 0, rotate: -24, scale: 0.9, y: -5 }}
+                  transition={CHAT_EMPTY_TEXT_TRANSITION}
+                >
+                  {titleAdornment}
+                </motion.span>
+              ) : null}
+            </AnimatePresence>
             {badge && badgeTooltip ? (
               <Tooltip>
                 <TooltipTrigger asChild>{badge}</TooltipTrigger>
@@ -65,7 +92,15 @@ export function ChatEmptyState({ greetingTitle, badgeLabel, badgeTooltip, notice
           </motion.div>
         </AnimatePresence>
       </motion.div>
-      {children ? <div className={cn("mt-7 w-full md:mt-8", contentWidthClassName)}>{children}</div> : null}
+      {children ? (
+        <motion.div
+          layout="position"
+          transition={CHAT_EMPTY_TEXT_TRANSITION}
+          className={cn("mt-7 w-full md:mt-8", contentWidthClassName)}
+        >
+          {children}
+        </motion.div>
+      ) : null}
     </div>
   );
 }
