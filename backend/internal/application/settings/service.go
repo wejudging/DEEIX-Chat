@@ -640,7 +640,7 @@ func validatePatchItem(item PatchItem) error {
 			return fmt.Errorf("%s must be bool", key)
 		}
 	case "extract:tika_timeout_seconds":
-		return validateIntMinMax(value, 1, 120, key)
+		return validateIntMinMax(value, 1, 600, key)
 	case "extract:docling_timeout_seconds", "extract:tesseract_ocr_timeout_seconds", "extract:rapidocr_timeout_seconds", "extract:paddle_ocr_timeout_seconds", "extract:tencent_ocr_timeout_seconds", "extract:aliyun_ocr_timeout_seconds", "extract:mineru_timeout_seconds", "extract:mistral_ocr_timeout_seconds", "extract:llm_ocr_timeout_seconds":
 		return validateIntMinMax(value, 1, 600, key)
 	case "mcp:mcp_max_llm_calls_per_run":

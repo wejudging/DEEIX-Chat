@@ -419,6 +419,19 @@ func TestMistralOCRSettings(t *testing.T) {
 	}
 }
 
+func TestValidateTikaTimeoutSetting(t *testing.T) {
+	for _, value := range []string{"1", "120", "360", "600"} {
+		if err := validatePatchItem(PatchItem{Namespace: "extract", Key: "tika_timeout_seconds", Value: value}); err != nil {
+			t.Fatalf("expected Tika timeout %s to pass, got %v", value, err)
+		}
+	}
+	for _, value := range []string{"0", "601"} {
+		if err := validatePatchItem(PatchItem{Namespace: "extract", Key: "tika_timeout_seconds", Value: value}); err == nil {
+			t.Fatalf("expected Tika timeout %s to fail", value)
+		}
+	}
+}
+
 func TestValidateFileProcessingSettingsRequiresMistralOCRConfiguration(t *testing.T) {
 	baseSettings := []domainsettings.SystemSetting{
 		{Namespace: "extract", Key: "image_ocr_enabled", Value: "true"},
