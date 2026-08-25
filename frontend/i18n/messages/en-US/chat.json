@@ -104,18 +104,18 @@
     "delete": "Delete"
   },
   "screenshot": {
-    "captureFull": "Capture full conversation",
+    "captureLatest": "Capture latest 100 messages",
     "captureSelect": "Select messages to capture",
     "selectMessage": "Select this message",
-    "selectedCount": "{count} selected",
     "selectAll": "Select all",
+    "selectLatest": "Select latest 100",
     "clearSelection": "Clear selection",
     "captureSelected": "Capture",
     "exitSelection": "Exit selection",
     "generating": "Generating screenshot…",
     "ready": "Screenshot ready",
     "failed": "Failed to generate screenshot",
-    "loadLimitReached": "The conversation is too long. Please select a portion of the messages to take a screenshot.",
+    "selectionLimitReached": "You can select up to 100 messages",
     "tooLarge": "The conversation content is too large. Please select a portion of the messages to take a screenshot.",
     "emptySelection": "Select at least one message",
     "previewTitle": "Conversation screenshot",
@@ -137,6 +137,14 @@
     "downloadImage": "Download image",
     "scrollableTable": "Scrollable data table",
     "scrollableTableHint": "Scroll horizontally to view more columns.",
+    "table": {
+      "download": "Download",
+      "downloadAsCsv": "Download CSV",
+      "downloadAsMarkdown": "Download Markdown",
+      "formatCsv": "CSV",
+      "formatMarkdown": "Markdown",
+      "downloadFailed": "Could not download table"
+    },
     "copyLatex": "Copy formula source",
     "latexCopied": "Formula source copied",
     "latexCopyFailed": "Could not copy formula source",
@@ -147,10 +155,6 @@
       "copy": "Copy link",
       "copied": "Link copied",
       "copyFailed": "Could not copy link"
-    },
-    "codeBlock": {
-      "collapse": "Collapse",
-      "expand": "Expand {count} lines"
     },
     "artifact": {
       "openPreview": "Preview",
@@ -170,10 +174,16 @@
       "done": "Thinking complete"
     },
     "diagram": {
-      "downloadDiagram": "Download diagram",
+      "downloadDiagram": "Download",
       "downloadDiagramAsSvg": "Download diagram as SVG",
       "downloadDiagramAsPng": "Download diagram as PNG",
-      "downloadDiagramAsMmd": "Download diagram as MMD"
+      "downloadDiagramAsMmd": "Download diagram as MMD",
+      "copyDiagram": "Copy",
+      "viewFullscreen": "Fullscreen",
+      "exitFullscreen": "Exit",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetView": "Reset view"
     }
   },
   "artifacts": {

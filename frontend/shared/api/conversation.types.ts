@@ -283,6 +283,7 @@ export type StreamMessageEvent =
       roundID?: string;
       eventID?: string;
       startedAt?: string;
+      endedAt?: string;
       kind?: ReasoningDeltaDTO["kind"] | string;
       delta?: string;
       contentMarkdown?: string;

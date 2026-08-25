@@ -38,6 +38,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebarHoverExpansionLock,
 } from "@/components/ui/sidebar";
 import { SpinnerLabel } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,8 @@ export function NavUser({
     billingBalanceNanousd: sessionUser?.billingBalanceNanousd,
   });
   const balanceLabel = formatBillingDisplayBalanceFromUSD(sessionUser?.billingBalanceUSD ?? 0, billingDisplay);
+
+  useSidebarHoverExpansionLock(open);
 
   React.useEffect(() => subscribeAnnouncementUnreadChanged(setHasUnreadAnnouncement), []);
 

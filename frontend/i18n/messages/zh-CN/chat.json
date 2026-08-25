@@ -104,18 +104,18 @@
     "delete": "删除"
   },
   "screenshot": {
-    "captureFull": "完整会话截图",
+    "captureLatest": "最近 100 条消息截图",
     "captureSelect": "选择消息截图",
     "selectMessage": "选择此消息",
-    "selectedCount": "已选 {count} 条消息",
     "selectAll": "全选",
+    "selectLatest": "选择最近 100 条",
     "clearSelection": "取消",
     "captureSelected": "生成",
     "exitSelection": "退出选择",
     "generating": "正在生成截图…",
     "ready": "截图已生成",
     "failed": "截图生成失败",
-    "loadLimitReached": "会话过长，请选择部分消息进行截图。",
+    "selectionLimitReached": "最多选择 100 条消息",
     "tooLarge": "会话内容过大，请选择部分消息进行截图。",
     "emptySelection": "请至少选择一条消息",
     "previewTitle": "会话截图",
@@ -137,6 +137,14 @@
     "downloadImage": "下载图片",
     "scrollableTable": "可横向滚动的数据表格",
     "scrollableTableHint": "横向滚动可查看更多列。",
+    "table": {
+      "download": "下载",
+      "downloadAsCsv": "下载 CSV",
+      "downloadAsMarkdown": "下载 Markdown",
+      "formatCsv": "CSV",
+      "formatMarkdown": "Markdown",
+      "downloadFailed": "表格下载失败"
+    },
     "copyLatex": "复制公式源码",
     "latexCopied": "已复制公式源码",
     "latexCopyFailed": "公式源码复制失败",
@@ -147,10 +155,6 @@
       "copy": "复制链接",
       "copied": "已复制链接",
       "copyFailed": "链接复制失败"
-    },
-    "codeBlock": {
-      "collapse": "折叠",
-      "expand": "展开 {count} 行"
     },
     "artifact": {
       "openPreview": "预览",
@@ -170,10 +174,16 @@
       "done": "思考完成"
     },
     "diagram": {
-      "downloadDiagram": "下载图表",
+      "downloadDiagram": "下载",
       "downloadDiagramAsSvg": "导出为 SVG",
       "downloadDiagramAsPng": "导出为 PNG",
-      "downloadDiagramAsMmd": "导出为 MMD 源码"
+      "downloadDiagramAsMmd": "导出为 MMD 源码",
+      "copyDiagram": "复制",
+      "viewFullscreen": "全屏",
+      "exitFullscreen": "退出",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "resetView": "重置视图"
     }
   },
   "artifacts": {
