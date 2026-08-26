@@ -19,7 +19,7 @@ import {
   ConversationShareDialog,
   sharePatchFromDTO,
   useConversationExport,
-  useSidebarConversations,
+  useSidebarConversationField,
 } from "@/entities/conversation";
 import { ChatArea, ChatAreaLoadError, ChatAreaSkeleton } from "@/features/chat/components/sections/chat-area";
 import { ChatArtifactWorkspace } from "@/features/chat/components/sections/chat-artifact";
@@ -40,10 +40,10 @@ import { useChatData } from "@/features/chat/hooks/use-chat-data";
 import { useChatModelOptions } from "@/features/chat/hooks/use-chat-model-options";
 import { useChatRuntime } from "@/features/chat/hooks/use-chat-runtime";
 import { useChatScreenshot } from "@/features/chat/hooks/use-chat-screenshot";
-import { useTemporaryChatRuntime } from "@/features/chat/hooks/use-temporary-chat-runtime";
 import { useChatViewerProfile } from "@/features/chat/hooks/use-chat-viewer-profile";
 import { useChatVisualPrompt } from "@/features/chat/hooks/use-chat-visual-prompt";
 import { useNewConversationDefaults } from "@/features/chat/hooks/use-new-conversation-defaults";
+import { useTemporaryChatRuntime } from "@/features/chat/hooks/use-temporary-chat-runtime";
 import {
   cloneConversationOptions,
   isConversationOptionsObject,
@@ -54,12 +54,12 @@ import type { ChatAreaMessage, MessageAttachment } from "@/features/chat/types/m
 import { useSettingsChatPreferences } from "@/features/settings/hooks/use-settings-chat-preferences";
 import { cn } from "@/lib/utils";
 import { getConversation } from "@/shared/api/conversation";
-import { useAuthSession } from "@/shared/auth/auth-session-context";
 import type { ConversationDTO, ConversationOptions } from "@/shared/api/conversation.types";
 import type { FileObjectDTO } from "@/shared/api/file.types";
 import { listAvailableMCPTools } from "@/shared/api/mcp";
 import type { MCPToolDTO } from "@/shared/api/mcp.types";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
+import { useAuthSession } from "@/shared/auth/auth-session-context";
 import { DeleteFilesOption } from "@/shared/components/delete-files-option";
 import { parseConversationLabelsJSON } from "@/shared/lib/conversation-labels";
 import {
@@ -182,18 +182,18 @@ export function AppChatArea() {
   const tScreenshot = useTranslations("chat.screenshot");
   const router = useRouter();
   const searchParams = useSearchParams();
-	const temporaryMode = searchParams.get("temporary") === "true";
-	const routeConversationID = temporaryMode ? null : searchParams.get("conversation_id")?.trim() || null;
-	const routeProjectID = temporaryMode ? null : searchParams.get("project_id")?.trim() || null;
-	const { user: sessionUser } = useAuthSession();
-	const {
-		detachConversationRun,
-		finishConversationRun,
+  const temporaryMode = searchParams.get("temporary") === "true";
+  const routeConversationID = temporaryMode ? null : searchParams.get("conversation_id")?.trim() || null;
+  const routeProjectID = temporaryMode ? null : searchParams.get("project_id")?.trim() || null;
+  const { user: sessionUser } = useAuthSession();
+  const {
+    detachConversationRun,
+    finishConversationRun,
     newConversationRevision,
     newConversationProjectID: requestedNewConversationProjectID,
-		registerConversationRun,
-		requestNewConversation,
-	} = useChatSession();
+	registerConversationRun,
+	requestNewConversation,
+  } = useChatSession();
   const [locallyCreatedConversationID, setLocallyCreatedConversationID] = React.useState<string | null>(null);
   const [newConversationOverride, setNewConversationOverride] = React.useState<{
     ignoredConversationID: string | null;
@@ -264,19 +264,17 @@ export function AppChatArea() {
     reuseModelOptions,
   } = useSettingsChatPreferences();
   const { settings: userSettings, loaded: userSettingsLoaded } = useUserSettings();
-  const {
-    items,
-    projects,
-    prependNewConversation,
-    touchByPublicID,
-    renameByPublicID,
-    upsertConversation,
-    regenerateTitleByPublicID,
-    updateLabelsByPublicID,
-    setStarByPublicID,
-    setProjectByPublicID,
-    deleteByPublicID,
-  } = useSidebarConversations();
+  const items = useSidebarConversationField("items");
+  const projects = useSidebarConversationField("projects");
+  const prependNewConversation = useSidebarConversationField("prependNewConversation");
+  const touchByPublicID = useSidebarConversationField("touchByPublicID");
+  const renameByPublicID = useSidebarConversationField("renameByPublicID");
+  const upsertConversation = useSidebarConversationField("upsertConversation");
+  const regenerateTitleByPublicID = useSidebarConversationField("regenerateTitleByPublicID");
+  const updateLabelsByPublicID = useSidebarConversationField("updateLabelsByPublicID");
+  const setStarByPublicID = useSidebarConversationField("setStarByPublicID");
+  const setProjectByPublicID = useSidebarConversationField("setProjectByPublicID");
+  const deleteByPublicID = useSidebarConversationField("deleteByPublicID");
   const {
     cancelResumedGeneration,
     loading,
@@ -415,6 +413,7 @@ export function AppChatArea() {
   } = useChatComposerState(conversationID, {
     preserveDrafts: preserveConversationDrafts,
     resetToken: newConversationRevision,
+    storageScope: sessionUser?.publicID ?? "",
     transient: temporaryMode,
   });
   const selectionConversationKey = resolveConversationComposerKey(conversationID);
@@ -460,6 +459,7 @@ export function AppChatArea() {
     createdConversationID: locallyCreatedConversationID,
     resetToken: newConversationRevision,
     hasConversation: Boolean(conversationID),
+    storageScope: sessionUser?.publicID ?? "",
   });
   const [defaultToolIDs, setDefaultToolIDs] = React.useState<number[]>([]);
   const newConversationSelectionKey = `${newConversationRevision}:${newConversationProjectID || "unassigned"}`;
@@ -691,6 +691,7 @@ export function AppChatArea() {
     ragAvailable,
     ragAvailabilityReason,
     releaseAttachments,
+    transferAttachments,
     onRemoveAttachment,
     onUploadFiles,
     onCaptureScreenshot,
@@ -747,6 +748,7 @@ export function AppChatArea() {
     setDraft,
     setAttachments,
     releaseAttachments,
+    transferAttachments,
     activeGenerationRunsRef,
     activeGenerationRunsRevision,
     onActiveGenerationRunsChange,

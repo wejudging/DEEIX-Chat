@@ -19,7 +19,7 @@ type Cache struct {
 
 	fileSeq      int64
 	fileQueue    []repository.FileProcessingMessage
-	fileInflight map[string]repository.FileProcessingMessage
+	fileInflight map[string]fileProcessingLease
 	fileDLQ      []repository.FileProcessingMessage
 	fileNotify   chan struct{}
 
@@ -31,7 +31,7 @@ type Cache struct {
 	upstreamCB   map[uint]*circuitState
 	modelCB      map[string]*circuitState
 	upstreamMeta map[uint]upstreamMetadata
-	rateLimits   map[uint]rateLimitState
+	rateLimits   map[routeRateLimitKey]rateLimitState
 	keyCounters  map[uint]int64
 
 	slidingHTTP map[string][]time.Time
@@ -57,7 +57,7 @@ func New() *Cache {
 		settings:                 map[string]expiringString{},
 		userSettings:             map[string]expiringString{},
 		userSettingVersions:      map[string]expiringString{},
-		fileInflight:             map[string]repository.FileProcessingMessage{},
+		fileInflight:             map[string]fileProcessingLease{},
 		fileNotify:               make(chan struct{}),
 		rag:                      map[string]expiringRAG{},
 		streams:                  map[string]*generationStream{},
@@ -65,7 +65,7 @@ func New() *Cache {
 		upstreamCB:               map[uint]*circuitState{},
 		modelCB:                  map[string]*circuitState{},
 		upstreamMeta:             map[uint]upstreamMetadata{},
-		rateLimits:               map[uint]rateLimitState{},
+		rateLimits:               map[routeRateLimitKey]rateLimitState{},
 		keyCounters:              map[uint]int64{},
 		slidingHTTP:              map[string][]time.Time{},
 		fixedHTTP:                map[string]fixedWindowCounter{},
