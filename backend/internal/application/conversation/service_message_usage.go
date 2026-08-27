@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 
+	domainchannel "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/channel"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/config"
-	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/llm"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/pkg/traceid"
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/ports/llm"
 	"go.uber.org/zap"
 )
 
@@ -168,7 +169,7 @@ func validateGenerateInputContextBudgetWithFallback(
 	stage string,
 ) error {
 	estimatedTokens := estimateGenerateInputTokens(input)
-	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(
+	budgetTokens := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(
 		modelName,
 		capabilitiesJSON,
 		fallbackContextWindow,
@@ -204,7 +205,7 @@ func trimGenerateInputHistoryToContextBudgetWithFallback(
 	capabilitiesJSON string,
 	fallbackContextWindow int,
 ) (llm.GenerateInput, bool) {
-	budgetTokens := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(
+	budgetTokens := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(
 		modelName,
 		capabilitiesJSON,
 		fallbackContextWindow,
@@ -313,7 +314,7 @@ func fitGenerateInputToModelBudget(
 		return input, result
 	}
 
-	result.Budget = int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(
+	result.Budget = int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(
 		modelName,
 		capabilitiesJSON,
 		fallbackContextWindow,
@@ -385,7 +386,7 @@ func resolveToolResultTokenBudget(
 		pendingAssistant,
 		llm.Message{Role: "tool", ToolResults: placeholderResults},
 	)
-	available := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(modelName, capabilitiesJSON, fallbackContextWindow)) -
+	available := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(modelName, capabilitiesJSON, fallbackContextWindow)) -
 		estimateToolFollowUpInputTokens(generateInput, budgetMessages)
 	if available < 0 {
 		return 0
@@ -401,7 +402,7 @@ func rebalanceToolFollowUpResults(
 	capabilitiesJSON string,
 	fallbackContextWindow int,
 ) ([]llm.Message, bool) {
-	effectiveBudget := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(modelName, capabilitiesJSON, fallbackContextWindow))
+	effectiveBudget := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(modelName, capabilitiesJSON, fallbackContextWindow))
 	if estimateToolFollowUpInputTokens(generateInput, messages) <= effectiveBudget {
 		return messages, false
 	}
@@ -480,7 +481,7 @@ func trimToolFollowUpHistory(
 	capabilitiesJSON string,
 	fallbackContextWindow int,
 ) ([]llm.Message, bool) {
-	effectiveBudget := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback(modelName, capabilitiesJSON, fallbackContextWindow))
+	effectiveBudget := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(modelName, capabilitiesJSON, fallbackContextWindow))
 	estimatedTokens := estimateToolFollowUpInputTokens(generateInput, messages)
 	if estimatedTokens <= effectiveBudget {
 		return messages, false

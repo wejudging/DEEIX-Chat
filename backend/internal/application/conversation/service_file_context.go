@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	domainchannel "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/channel"
 	model "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/conversation"
 	domainknowledgebase "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/knowledgebase"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/config"
-	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/llm"
 )
 
 const (
@@ -368,7 +368,7 @@ func shouldUseRAGForAttachment(item AttachmentInput, fileMode string, cfg config
 			return true
 		}
 		if cfg.ContextTokenBudgetEnabled {
-			budget := llm.EffectiveContextBudgetFromCapabilitiesWithFallback(capabilityModelName, capabilitiesJSON, cfg.ContextWindowFallbackTokens)
+			budget := domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback(capabilityModelName, capabilitiesJSON, cfg.ContextWindowFallbackTokens)
 			fileTokens := int(estimateTokens(item.ExtractedText))
 			return budget > 0 && fileTokens > budget*2/5
 		}
