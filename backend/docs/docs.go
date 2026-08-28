@@ -6745,6 +6745,102 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/redemptions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "管理员分页查看兑换码兑换明细，含奖励内容与余额变动，已删除兑换码的历史仍可查询",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "管理员查询兑换记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索兑换流水号、兑换码摘要、兑换码备注",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "兑换码ID",
+                        "name": "code_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "奖励类型(balance/subscription)",
+                        "name": "reward_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "兑换时间起点(RFC3339)",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "兑换时间终点(RFC3339)",
+                        "name": "created_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序方式",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RedemptionRecordListResponseDoc"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/AdminErrorDoc"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/AdminErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/settings": {
             "get": {
                 "security": [
@@ -9844,7 +9940,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Sends an authoritative snapshot followed by live user-scoped run state events",
+                "description": "Sends an authoritative snapshot followed by live user-scoped run state events; the snapshot is re-sent periodically for client-side reconciliation",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -23612,6 +23708,136 @@ const docTemplate = `{
                 }
             }
         },
+        "RedemptionRecordListResponseDoc": {
+            "type": "object",
+            "required": [
+                "data",
+                "errorMsg"
+            ],
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "required": [
+                        "results",
+                        "total"
+                    ],
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RedemptionRecordResponse"
+                            }
+                        },
+                        "total": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
+        "RedemptionRecordResponse": {
+            "type": "object",
+            "required": [
+                "balanceAfterNanousd",
+                "balanceBeforeNanousd",
+                "codeDescription",
+                "codeHint",
+                "codeID",
+                "codeStatus",
+                "createdAt",
+                "creditNanousd",
+                "creditUSD",
+                "durationDays",
+                "id",
+                "mode",
+                "planID",
+                "planName",
+                "refNo",
+                "rewardType",
+                "snapshotJSON",
+                "subscriptionID",
+                "userDisplayName",
+                "userID",
+                "userLabel",
+                "username"
+            ],
+            "properties": {
+                "balanceAfterNanousd": {
+                    "type": "integer",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "balanceBeforeNanousd": {
+                    "description": "BalanceBeforeNanousd / BalanceAfterNanousd 来自余额流水；订阅类兑换无流水时为 null。",
+                    "type": "integer",
+                    "x-nullable": true,
+                    "x-omitempty": false
+                },
+                "codeDescription": {
+                    "type": "string"
+                },
+                "codeHint": {
+                    "type": "string"
+                },
+                "codeID": {
+                    "type": "integer"
+                },
+                "codeStatus": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "creditNanousd": {
+                    "type": "integer"
+                },
+                "creditUSD": {
+                    "type": "number"
+                },
+                "durationDays": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "planID": {
+                    "type": "integer"
+                },
+                "planName": {
+                    "type": "string"
+                },
+                "refNo": {
+                    "type": "string"
+                },
+                "rewardType": {
+                    "type": "string"
+                },
+                "snapshotJSON": {
+                    "type": "string"
+                },
+                "subscriptionID": {
+                    "type": "integer"
+                },
+                "userDisplayName": {
+                    "type": "string"
+                },
+                "userID": {
+                    "type": "integer"
+                },
+                "userLabel": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "RedemptionResponse": {
             "type": "object",
             "required": [
@@ -25153,6 +25379,7 @@ const docTemplate = `{
                 "id",
                 "inputSchemaJSON",
                 "name",
+                "priceNanousd",
                 "serverID",
                 "serverName",
                 "sortOrder",
@@ -25198,6 +25425,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "priceNanousd": {
+                    "type": "integer"
                 },
                 "serverID": {
                     "type": "integer"
@@ -25672,6 +25902,11 @@ const docTemplate = `{
                 },
                 "displayName": {
                     "type": "string"
+                },
+                "priceNanousd": {
+                    "description": "PriceNanousd 单次调用价格（nano USD），0 表示不单独计费。",
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "status": {
                     "type": "string"
@@ -27739,7 +27974,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.3.6",
+	Version:          "0.4.0",
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

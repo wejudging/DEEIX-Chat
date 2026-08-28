@@ -2920,6 +2920,40 @@ export interface RedemptionCodeResponseDoc {
   errorMsg: string;
 }
 
+export interface RedemptionRecordListResponseDoc {
+  data: {
+    results: RedemptionRecordResponse[];
+    total: number;
+  };
+  errorMsg: string;
+}
+
+export interface RedemptionRecordResponse {
+  balanceAfterNanousd: number | null;
+  /** BalanceBeforeNanousd / BalanceAfterNanousd 来自余额流水；订阅类兑换无流水时为 null。 */
+  balanceBeforeNanousd: number | null;
+  codeDescription: string;
+  codeHint: string;
+  codeID: number;
+  codeStatus: string;
+  createdAt: string;
+  creditNanousd: number;
+  creditUSD: number;
+  durationDays: number;
+  id: number;
+  mode: string;
+  planID: number;
+  planName: string;
+  refNo: string;
+  rewardType: string;
+  snapshotJSON: string;
+  subscriptionID: number;
+  userDisplayName: string;
+  userID: number;
+  userLabel: string;
+  username: string;
+}
+
 export interface RedemptionResponse {
   balanceTransactionID: number;
   codeID: number;
@@ -3416,6 +3450,7 @@ export interface ToolResponse {
   id: number;
   inputSchemaJSON: string;
   name: string;
+  priceNanousd: number;
   serverID: number;
   serverName: string;
   sortOrder: number;
@@ -3604,6 +3639,11 @@ export interface UpdateToolRequest {
   attachmentPromptArgument?: string;
   description?: string;
   displayName?: string;
+  /**
+   * PriceNanousd 单次调用价格（nano USD），0 表示不单独计费。
+   * @min 0
+   */
+  priceNanousd?: number;
   status?: string;
 }
 
@@ -6694,6 +6734,41 @@ export namespace Admin {
   }
 
   /**
+   * @description 管理员分页查看兑换码兑换明细，含奖励内容与余额变动，已删除兑换码的历史仍可查询
+   * @tags admin
+   * @name RedemptionsList
+   * @summary 管理员查询兑换记录
+   * @request GET:/admin/redemptions
+   * @secure
+   */
+  export namespace RedemptionsList {
+    export type RequestParams = {};
+    export type RequestQuery = {
+      /** 兑换码ID */
+      code_id?: number;
+      /** 兑换时间起点(RFC3339) */
+      created_from?: string;
+      /** 兑换时间终点(RFC3339) */
+      created_to?: string;
+      /** 页码 */
+      page?: number;
+      /** 每页数量 */
+      page_size?: number;
+      /** 搜索兑换流水号、兑换码摘要、兑换码备注 */
+      query?: string;
+      /** 奖励类型(balance/subscription) */
+      reward_type?: string;
+      /** 排序方式 */
+      sort?: string;
+      /** 用户ID */
+      user_id?: number;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = RedemptionRecordListResponseDoc;
+  }
+
+  /**
    * @description 按 namespace 分组返回全部动态配置项
    * @tags admin/settings
    * @name SettingsList
@@ -7944,7 +8019,7 @@ export namespace ConversationRuns {
   }
 
   /**
-   * @description Sends an authoritative snapshot followed by live user-scoped run state events
+   * @description Sends an authoritative snapshot followed by live user-scoped run state events; the snapshot is re-sent periodically for client-side reconciliation
    * @tags chat
    * @name StreamList
    * @summary Stream active conversation generations
