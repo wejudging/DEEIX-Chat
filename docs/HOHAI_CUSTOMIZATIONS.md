@@ -7,6 +7,7 @@ The behavior below was recorded against upstream commit `c86c812c` on 2026-08-30
 
 ## Composer tools
 
+- The composer footer keeps only the plus tools menu and the **智能搜索 / Smart search** entry on the left; model parameter configuration and Markdown preview controls are intentionally hidden.
 - The composer MCP entry is presented as **智能搜索 / Smart search** with a globe icon.
 - On accounts that have never saved a default MCP selection, HOHAI automatically enables one web-search tool and one web-fetch tool when the catalog exposes matching tools. Matching is conservative and supports names such as `web_search`, `web_fetch`, `联网搜索`, and `网页抓取`.
 - `chat.default_mcp_tool_ids_initialized` distinguishes the HOHAI first-use default from an explicit user choice. Saving any default selection writes this marker as `true`, including an intentionally empty selection.

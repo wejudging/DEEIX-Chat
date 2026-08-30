@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, CornerDownRight, Eye, EyeOff, Film, HatGlasses, Image, ImageOff, ImagePlus, LoaderCircle, PencilLine, Trash2 } from "lucide-react";
+import { Box, CornerDownRight, Film, HatGlasses, Image, ImageOff, ImagePlus, LoaderCircle, PencilLine, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
@@ -39,7 +39,6 @@ import {
 import { PlusIcon } from "@/components/ui/plus";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatMCP } from "@/features/chat/components/sections/chat-mcp";
-import { ChatModelConfig } from "@/features/chat/components/sections/chat-model-config";
 import { ChatModelPicker } from "@/features/chat/components/sections/chat-model-picker";
 import { ChatMentionMenuPortal } from "@/features/chat/components/shared/chat-mention-menu";
 import {
@@ -50,7 +49,6 @@ import {
   type SpeechInputErrorCode,
   useChatSpeechInput,
 } from "@/features/chat/hooks/use-chat-speech-input";
-import { useChatPreviewSync } from "@/features/chat/hooks/use-chat-preview-sync";
 import type { ChatSubmitDecision } from "@/features/chat/model/chat-task";
 import { isMediaSubmitTask, resolveChatSubmitDecision } from "@/features/chat/model/chat-task";
 import type {
@@ -68,13 +66,11 @@ import type { ConversationOptions } from "@/shared/api/conversation.types";
 import type { FileObjectDTO } from "@/shared/api/file.types";
 import type { MCPToolDTO } from "@/shared/api/mcp.types";
 import type { SkillSummaryDTO } from "@/shared/api/skills.types";
-import { StreamdownRender } from "@/shared/components/markdown/streamdown-render";
 import { useDialogSnapshot } from "@/shared/hooks/use-dialog-snapshot";
 import { useScrollFadeFallbackRef } from "@/shared/hooks/use-scroll-fade-fallback-ref";
 import type { BillingDisplayCurrency } from "@/shared/lib/billing-display";
 import { formatBytes, resolveFileExtension, resolveFileIcon } from "@/shared/lib/file-display";
 import { isFileProcessing, resolveFileProcessingBadge } from "@/shared/lib/file-processing";
-import type { ModelOptionPolicy } from "@/shared/lib/model-option-policy";
 import { isSendShortcutEvent } from "@/shared/lib/platform-shortcuts";
 
 const FilePreviewDialog = dynamic(
@@ -118,8 +114,6 @@ type ChatInputProps = {
   maxSelectedSkills: number;
   toolsLoading: boolean;
   options: ConversationOptions;
-  defaultOptions: ConversationOptions;
-  modelOptionPolicy: ModelOptionPolicy | null;
   modelLoading: boolean;
   modelDisabled?: boolean;
   dropActive?: boolean;
@@ -130,9 +124,6 @@ type ChatInputProps = {
   onSelectedToolsChange: (toolIDs: number[]) => void;
   onSelectedSkillsChange: (skills: SkillSummaryDTO[]) => void;
   onDefaultToolsChange: (toolIDs: number[]) => void | Promise<void>;
-  onOptionsChange: React.Dispatch<React.SetStateAction<ConversationOptions>>;
-  onOptionsReset: (defaults?: ConversationOptions) => void;
-  onOptionsDefaultRestore: () => Promise<ConversationOptions | null>;
   onAttachExistingFile: (file: FileObjectDTO) => void | Promise<void>;
   onUploadFiles: (files: File[]) => void | Promise<void>;
   onCaptureScreenshot: () => void | Promise<void>;
@@ -268,8 +259,6 @@ function ChatInputComponent({
   maxSelectedSkills,
   toolsLoading,
   options,
-  defaultOptions,
-  modelOptionPolicy,
   modelLoading,
   modelDisabled = false,
   dropActive = false,
@@ -280,9 +269,6 @@ function ChatInputComponent({
   onSelectedToolsChange,
   onSelectedSkillsChange,
   onDefaultToolsChange,
-  onOptionsChange,
-  onOptionsReset,
-  onOptionsDefaultRestore,
   onAttachExistingFile,
   onUploadFiles,
   onCaptureScreenshot,
@@ -320,13 +306,11 @@ function ChatInputComponent({
   const [hoveredTool, setHoveredTool] = React.useState<"upload" | "screenshot" | null>(null);
   const [ragWarnDismissed, setRagWarnDismissed] = React.useState(false);
   const [previewAttachment, setPreviewAttachment] = React.useState<PendingAttachment | null>(null);
-  const [markdownPreview, setMarkdownPreview] = React.useState(false);
   const stablePreviewAttachment = useDialogSnapshot(previewAttachment);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const inputGroupRef = React.useRef<HTMLDivElement | null>(null);
   const inputGroupMeasureRef = React.useRef<HTMLDivElement | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
-  const markdownPreviewRef = React.useRef<HTMLDivElement | null>(null);
   const attachmentScrollFadeRef = useScrollFadeFallbackRef<HTMLDivElement>();
   const composingRef = React.useRef(false);
   const [inputGroupHeight, setInputGroupHeight] = React.useState<number | null>(null);
@@ -344,15 +328,8 @@ function ChatInputComponent({
           ? tComposer("cancelVoiceInput")
           : tComposer("voiceInput")
         : tComposer("voiceUnsupported");
-  const showMarkdownPreview = markdownPreview && hasDraftText;
   const inputHeightClassName =
     inputHeight === "compact" ? "max-h-32" : inputHeight === "loose" ? "max-h-64" : "max-h-44";
-  const { onPreviewScroll, onSourceScroll } = useChatPreviewSync({
-    enabled: showMarkdownPreview,
-    previewRef: markdownPreviewRef,
-    source: draft,
-    textareaRef,
-  });
 
   // Only relevant in RAG mode: all document attachments opted out of RAG.
   const docAttachments = attachments.filter((a) => a.fileCategory !== "image");
@@ -367,12 +344,6 @@ function ChatInputComponent({
       setPreviewAttachment(null);
     }
   }, []);
-
-  React.useEffect(() => {
-    if (!hasDraftText) {
-      setMarkdownPreview(false);
-    }
-  }, [hasDraftText]);
 
   React.useLayoutEffect(() => {
     const node = inputGroupMeasureRef.current;
@@ -416,25 +387,11 @@ function ChatInputComponent({
     () => modelOptions.find((item) => item.platformModelName === selectedPlatformModelName) ?? null,
     [modelOptions, selectedPlatformModelName],
   );
-  const selectedProtocols = React.useMemo(() => selectedModel?.protocols ?? [], [selectedModel]);
-  const selectedModelName = selectedModel?.platformModelName || selectedPlatformModelName;
   const submitDecision = resolveChatSubmitDecision(selectedModel, attachments, options);
   const submitTask = submitDecision.task;
   const isMediaMode = isMediaSubmitTask(submitTask);
   const composerModeIndicator = resolveComposerModeIndicator(submitDecision, tComposer);
   const ComposerModeIcon = composerModeIndicator?.icon;
-  const taskOptionConfig = submitTask === "video_extension" ? selectedModel?.videoExtension : null;
-  const modelConfigOptions = React.useMemo(() => {
-    if (!taskOptionConfig) {
-      return options;
-    }
-    const duration = Number(options.duration);
-    return {
-      ...options,
-      duration: Number.isInteger(duration) && duration >= 2 && duration <= 10 ? duration : 6,
-    };
-  }, [options, taskOptionConfig]);
-  const modelOptionPolicyDisabled = modelOptionPolicy?.mode?.trim() === "disabled";
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
   const showSelectedSkills = selectedSkills.length > 0 && !isMediaMode;
@@ -656,26 +613,6 @@ function ChatInputComponent({
         </div>
       ) : null}
 
-      <AnimatePresence initial={false}>
-        {showMarkdownPreview && inputGroupHeight !== null ? (
-          <motion.div
-            ref={markdownPreviewRef}
-            key="markdown-preview"
-            role="region"
-            aria-label={tComposer("markdownPreview")}
-            className="absolute inset-x-0 z-[60] max-h-[40dvh] min-h-16 overflow-y-auto rounded-xl border-[0.5px] border-border/70 bg-pure/85 px-5 py-4 text-[15px] text-foreground shadow-xs backdrop-blur-xl"
-            style={{ bottom: inputGroupHeight + 8 }}
-            initial={{ opacity: 0, scale: 0.99, y: 4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.99, y: 4 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
-            onScroll={onPreviewScroll}
-          >
-            <StreamdownRender content={draft} variant="user" sourcePositions />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
       <InputGroup
         ref={inputGroupRef}
         className={cn(
@@ -868,7 +805,6 @@ function ChatInputComponent({
             onClick={handleMentionSelectionChange}
             onKeyUp={handleMentionSelectionChange}
             onSelect={handleMentionSelectionChange}
-            onScroll={onSourceScroll}
             onPaste={(event) => {
               const files = clipboardFilesFromPaste(event);
               const markdownPaste = resolveClipboardMarkdownPaste(event.clipboardData);
@@ -985,24 +921,6 @@ function ChatInputComponent({
                 </DropdownMenu>
               ) : null}
 
-              {!modelOptionPolicyDisabled ? (
-                <ChatModelConfig
-                  disabled={loading || uploading || modelLoading}
-                  options={modelConfigOptions}
-                  defaultOptions={taskOptionConfig?.defaultOptions ?? defaultOptions}
-                  optionControls={taskOptionConfig?.optionControls ?? selectedModel?.optionControls ?? []}
-                  lockedOptionPaths={taskOptionConfig ? [] : selectedModel?.lockedOptionPaths ?? []}
-                  nativeToolKeys={selectedModel?.nativeToolKeys ?? []}
-                  nativeTools={selectedModel?.nativeTools ?? []}
-                  modelOptionPolicy={modelOptionPolicy}
-                  selectedProtocols={selectedProtocols}
-                  selectedModelName={selectedModelName}
-                  onOptionsChange={onOptionsChange}
-                  onOptionsReset={onOptionsReset}
-                  onDefaultOptionsRestore={onOptionsDefaultRestore}
-                />
-              ) : null}
-
               {showMCPToolsButton ? (
                 <ChatMCP
                   availableTools={availableTools}
@@ -1014,35 +932,6 @@ function ChatInputComponent({
                   onSelectedToolsChange={onSelectedToolsChange}
                   onDefaultToolsChange={onDefaultToolsChange}
                 />
-              ) : null}
-
-              {hasDraftText ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InputGroupButton
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className={cn(
-                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
-                        showMarkdownPreview && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
-                      )}
-                      disabled={speechInput.active}
-                      aria-label={showMarkdownPreview ? tComposer("hideMarkdownPreview") : tComposer("previewMarkdown")}
-                      aria-pressed={showMarkdownPreview}
-                      onClick={() => setMarkdownPreview((visible) => !visible)}
-                    >
-                      {showMarkdownPreview ? (
-                        <EyeOff className="size-4" strokeWidth={1.6} />
-                      ) : (
-                        <Eye className="size-4" strokeWidth={1.6} />
-                      )}
-                    </InputGroupButton>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {showMarkdownPreview ? tComposer("hideMarkdownPreview") : tComposer("previewMarkdown")}
-                  </TooltipContent>
-                </Tooltip>
               ) : null}
 
             </div>
