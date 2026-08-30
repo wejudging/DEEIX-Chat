@@ -8,7 +8,6 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { AudioLines } from "@/components/animate-ui/icons/audio-lines";
-import { Blocks } from "@/components/animate-ui/icons/blocks";
 import { Crop } from "@/components/animate-ui/icons/crop";
 import { Link as LinkIcon } from "@/components/animate-ui/icons/link";
 import { Pause } from "@/components/animate-ui/icons/pause";
@@ -39,7 +38,6 @@ import {
 } from "@/components/ui/input-group";
 import { PlusIcon } from "@/components/ui/plus";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChatKnowledgeBases } from "@/features/chat/components/sections/chat-knowledge-bases";
 import { ChatMCP } from "@/features/chat/components/sections/chat-mcp";
 import { ChatModelConfig } from "@/features/chat/components/sections/chat-model-config";
 import { ChatModelPicker } from "@/features/chat/components/sections/chat-model-picker";
@@ -103,8 +101,6 @@ type ChatInputProps = {
   uploading: boolean;
   isConversationMode: boolean;
   fileMode?: "auto" | "full_context" | "rag";
-  ragAvailable: boolean | null;
-  ragAvailabilityReason: string;
   sendShortcut?: SendShortcut;
   inputHeight?: "compact" | "standard" | "loose";
   attachments: PendingAttachment[];
@@ -116,10 +112,8 @@ type ChatInputProps = {
   availableTools: MCPToolDTO[];
   selectedToolIDs: number[];
   selectedSkills: SkillSummaryDTO[];
-  selectedKnowledgeBaseIDs: string[];
   defaultToolIDs: number[];
   queuedMessages: QueuedComposerMessage[];
-  htmlVisualPromptEnabled: boolean;
   maxSelectedTools: number;
   maxSelectedSkills: number;
   toolsLoading: boolean;
@@ -135,9 +129,7 @@ type ChatInputProps = {
   onModelCatalogRefresh?: () => void | Promise<void>;
   onSelectedToolsChange: (toolIDs: number[]) => void;
   onSelectedSkillsChange: (skills: SkillSummaryDTO[]) => void;
-  onSelectedKnowledgeBasesChange: (ids: string[]) => void;
   onDefaultToolsChange: (toolIDs: number[]) => void | Promise<void>;
-  onHTMLVisualPromptChange: (enabled: boolean) => void;
   onOptionsChange: React.Dispatch<React.SetStateAction<ConversationOptions>>;
   onOptionsReset: (defaults?: ConversationOptions) => void;
   onOptionsDefaultRestore: () => Promise<ConversationOptions | null>;
@@ -259,8 +251,6 @@ function ChatInputComponent({
   uploading,
   isConversationMode,
   fileMode,
-  ragAvailable,
-  ragAvailabilityReason,
   sendShortcut = "enter",
   inputHeight = "standard",
   attachments,
@@ -272,10 +262,8 @@ function ChatInputComponent({
   availableTools,
   selectedToolIDs,
   selectedSkills,
-  selectedKnowledgeBaseIDs,
   defaultToolIDs,
   queuedMessages,
-  htmlVisualPromptEnabled,
   maxSelectedTools,
   maxSelectedSkills,
   toolsLoading,
@@ -291,9 +279,7 @@ function ChatInputComponent({
   onModelCatalogRefresh,
   onSelectedToolsChange,
   onSelectedSkillsChange,
-  onSelectedKnowledgeBasesChange,
   onDefaultToolsChange,
-  onHTMLVisualPromptChange,
   onOptionsChange,
   onOptionsReset,
   onOptionsDefaultRestore,
@@ -311,7 +297,6 @@ function ChatInputComponent({
   const tComposer = useTranslations("chat.composer");
   const tFileStatus = useTranslations("files.status");
   const locale = useLocale();
-  const [isBlocksHovered, setIsBlocksHovered] = React.useState(false);
   const [isVoiceHovered, setIsVoiceHovered] = React.useState(false);
   const [toolsMenuHovered, setToolsMenuHovered] = React.useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = React.useState(false);
@@ -451,7 +436,6 @@ function ChatInputComponent({
   }, [options, taskOptionConfig]);
   const modelOptionPolicyDisabled = modelOptionPolicy?.mode?.trim() === "disabled";
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;
-  const showHTMLVisualPromptButton = !isMediaMode;
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
   const showSelectedSkills = selectedSkills.length > 0 && !isMediaMode;
   const {
@@ -1030,48 +1014,6 @@ function ChatInputComponent({
                   onSelectedToolsChange={onSelectedToolsChange}
                   onDefaultToolsChange={onDefaultToolsChange}
                 />
-              ) : null}
-
-              {!isMediaMode ? (
-                <ChatKnowledgeBases
-                  selectedIDs={selectedKnowledgeBaseIDs}
-                  placementPreference={isConversationMode ? "top" : "bottom"}
-                  disabled={loading || uploading}
-                  available={ragAvailable}
-                  unavailableReason={ragAvailabilityReason}
-                  onChange={onSelectedKnowledgeBasesChange}
-                />
-              ) : null}
-
-              {showHTMLVisualPromptButton ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InputGroupButton
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className={cn(
-                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
-                        htmlVisualPromptEnabled && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
-                      )}
-                      disabled={loading || uploading}
-                      aria-label={tComposer("htmlVisualPrompt")}
-                      aria-pressed={htmlVisualPromptEnabled}
-                      onClick={() => onHTMLVisualPromptChange(!htmlVisualPromptEnabled)}
-                      onMouseEnter={() => setIsBlocksHovered(true)}
-                      onMouseLeave={() => setIsBlocksHovered(false)}
-                    >
-                      <Blocks
-                        size={20}
-                        strokeWidth={1.4}
-                        animate={htmlVisualPromptEnabled ? "default" : isBlocksHovered ? "default" : undefined}
-                      />
-                    </InputGroupButton>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {tComposer("htmlVisualPrompt")}
-                  </TooltipContent>
-                </Tooltip>
               ) : null}
 
               {hasDraftText ? (

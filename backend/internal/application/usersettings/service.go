@@ -42,6 +42,7 @@ var allowedKeys = map[string]string{
 	"chat.input_height":                         "standard",
 	"chat.content_width":                        "compact",
 	"chat.default_mcp_tool_ids":                 "[]",
+	"chat.default_mcp_tool_ids_initialized":     "false",
 }
 
 // boolKeys 取值只能是 "true" / "false"。
@@ -61,6 +62,7 @@ var boolKeys = map[string]bool{
 	"chat.preserve_conversation_drafts":         true,
 	"chat.reuse_model_options":                  true,
 	"chat.reasoning_content_passback":           true,
+	"chat.default_mcp_tool_ids_initialized":     true,
 }
 
 // enumKeys 枚举 key 的合法值集合。

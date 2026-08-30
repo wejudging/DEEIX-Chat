@@ -4,10 +4,12 @@ import { useTranslations } from "next-intl";
 import * as React from "react";
 import { toast } from "sonner";
 import {
+  DEFAULT_MCP_TOOLS_INITIALIZED_SETTING_KEY,
   DEFAULT_MCP_TOOLS_SETTING_KEY,
   filterAvailableMCPToolIDs,
   normalizeAvailableMCPTools,
   parseDefaultMCPToolIDs,
+  resolveSmartSearchDefaultToolIDs,
 } from "@/features/chat/model/chat-mcp-tool-defaults";
 import { listAvailableMCPTools } from "@/shared/api/mcp";
 import type { MCPToolDTO } from "@/shared/api/mcp.types";
@@ -108,12 +110,11 @@ export function useChatMCPTools({
       setDefaultToolsReady(false);
       return;
     }
+    const configuredToolIDs = parseDefaultMCPToolIDs(userSettings[DEFAULT_MCP_TOOLS_SETTING_KEY]);
+    const hasExplicitDefaults = userSettings[DEFAULT_MCP_TOOLS_INITIALIZED_SETTING_KEY] === "true" || configuredToolIDs.length > 0;
+    const preferredToolIDs = hasExplicitDefaults ? configuredToolIDs : resolveSmartSearchDefaultToolIDs(availableTools);
     setDefaultToolIDs(normalizeImageAttachmentProcessorSelection(
-      filterAvailableMCPToolIDs(
-        parseDefaultMCPToolIDs(userSettings[DEFAULT_MCP_TOOLS_SETTING_KEY]),
-        availableTools,
-        mcpMaxSelectedTools,
-      ),
+      filterAvailableMCPToolIDs(preferredToolIDs, availableTools, mcpMaxSelectedTools),
       availableTools,
     ));
     setDefaultToolsReady(true);
@@ -136,6 +137,7 @@ export function useChatMCPTools({
       }
       await updateUserSettings(token, {
         [DEFAULT_MCP_TOOLS_SETTING_KEY]: JSON.stringify(nextDefaults),
+        [DEFAULT_MCP_TOOLS_INITIALIZED_SETTING_KEY]: "true",
       });
       toast.success(t("composer.defaultMCPToolsSaved"));
     } catch (error) {

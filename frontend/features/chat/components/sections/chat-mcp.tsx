@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, CircleDollarSign, ImageIcon, Info, Star } from "lucide-react";
+import { ChevronDown, CircleDollarSign, Globe2, ImageIcon, Info, Star } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { Unplug } from "@/components/animate-ui/icons/unplug";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { InputGroupButton } from "@/components/ui/input-group";
@@ -158,7 +157,6 @@ export function ChatMCP({
   onDefaultToolsChange,
 }: ChatMCPProps) {
   const tComposer = useTranslations("chat.composer");
-  const [hovered, setHovered] = React.useState(false);
   const [hoveredRowKey, setHoveredRowKey] = React.useState<string | null>(null);
   const [focusedRowKey, setFocusedRowKey] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -293,14 +291,11 @@ export function ChatMCP({
               size="icon-sm"
               className="relative size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8"
               disabled={disabled}
-              aria-label={tComposer("mcpTools")}
-              onMouseEnter={() => setHovered(true)}
-              onMouseLeave={() => setHovered(false)}
+              aria-label={tComposer("smartSearch")}
             >
-              <Unplug
+              <Globe2
                 size={20}
                 strokeWidth={1.4}
-                animate={hovered ? "default" : undefined}
               />
               {selectedToolCount > 0 ? (
                 <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium leading-none text-primary-foreground">
@@ -312,8 +307,8 @@ export function ChatMCP({
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
           {selectedToolCount > 0
-            ? tComposer("mcpToolsSelected", { count: selectedToolCount })
-            : tComposer("mcpTools")}
+            ? tComposer("smartSearchSelected", { count: selectedToolCount })
+            : tComposer("smartSearch")}
         </TooltipContent>
       </Tooltip>
       <PopoverContent
@@ -341,7 +336,7 @@ export function ChatMCP({
         }}
       >
         <div className="flex h-7 shrink-0 items-center justify-between gap-3 px-2 text-[11px] font-medium text-foreground/70">
-          <span>{tComposer("mcpTools")}</span>
+          <span>{tComposer("smartSearch")}</span>
           {selectedToolCount > 0 ? (
             <button
               type="button"

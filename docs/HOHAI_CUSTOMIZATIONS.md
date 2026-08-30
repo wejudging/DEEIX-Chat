@@ -1,0 +1,22 @@
+# HOHAI Customizations
+
+This file records HOHAI-specific behavior that must be preserved when merging updates from `upstream/dev`.
+
+Current customization branch: `hohai/custom-branding-billing-v7`.
+The behavior below was recorded against upstream commit `c86c812c` on 2026-08-30.
+
+## Composer tools
+
+- The composer MCP entry is presented as **智能搜索 / Smart search** with a globe icon.
+- On accounts that have never saved a default MCP selection, HOHAI automatically enables one web-search tool and one web-fetch tool when the catalog exposes matching tools. Matching is conservative and supports names such as `web_search`, `web_fetch`, `联网搜索`, and `网页抓取`.
+- `chat.default_mcp_tool_ids_initialized` distinguishes the HOHAI first-use default from an explicit user choice. Saving any default selection writes this marker as `true`, including an intentionally empty selection.
+- The knowledge-base composer button is hidden. Knowledge-base APIs, file processing, `@` resources, and existing conversation behavior remain available.
+
+## Visual layout prompt
+
+- The visual layout prompt is enabled by default for first-time browsers.
+- An existing local preference of `false` is still respected, but its composer toggle is hidden. The prompt continues to be passed to chat requests.
+
+## Merge rule
+
+When syncing `upstream/dev`, preserve the files and logic listed above, especially the smart-search resolver, the user-settings initialization marker, the visual-prompt default, and the composer button visibility changes.

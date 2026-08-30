@@ -41,6 +41,14 @@ func TestDefaultMCPToolIDsSettingIsAllowed(t *testing.T) {
 	if err := validateValue("chat.default_mcp_tool_ids", "[1,2,3]"); err != nil {
 		t.Fatalf("expected chat.default_mcp_tool_ids to be accepted, got %v", err)
 	}
+	if got := allowedKeys["chat.default_mcp_tool_ids_initialized"]; got != "false" {
+		t.Fatalf("expected chat.default_mcp_tool_ids_initialized default to be false, got %q", got)
+	}
+	for _, value := range []string{"true", "false"} {
+		if err := validateValue("chat.default_mcp_tool_ids_initialized", value); err != nil {
+			t.Fatalf("expected chat.default_mcp_tool_ids_initialized=%s to be accepted, got %v", value, err)
+		}
+	}
 }
 
 func TestContentWidthSettingIsAllowed(t *testing.T) {

@@ -405,6 +405,8 @@
     "voiceStartingPlaceholder": "正在启动语音输入…",
     "voiceListeningPlaceholder": "正在接收语音…",
     "modelOptions": "模型配置",
+    "smartSearch": "智能搜索",
+    "smartSearchSelected": "已启用 {count} 项智能搜索能力",
     "mcpTools": "MCP 工具",
     "mcpToolsSelected": "已启用 {count} 个工具",
     "knowledgeBases": "知识库",
