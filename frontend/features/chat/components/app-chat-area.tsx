@@ -331,12 +331,7 @@ export function AppChatArea() {
   const refreshModelCatalogForComposer = React.useCallback(async () => {
     await refreshModelCatalog();
   }, [refreshModelCatalog]);
-  const {
-    options,
-    setModelOptions,
-    resetModelOptions,
-    restoreBackendDefaultModelOptions,
-  } = useChatModelOptionState({
+  const { options } = useChatModelOptionState({
     selectedModel,
     selectedPlatformModelName,
     chatPreferencesLoaded,
@@ -362,7 +357,6 @@ export function AppChatArea() {
     toolsLoading,
     defaultToolIDs,
     defaultToolsReady,
-    onDefaultToolIDsChange,
   } = useChatMCPTools({
     mcpMaxSelectedTools,
     selectedToolIDs,
@@ -726,9 +720,6 @@ export function AppChatArea() {
     ? `minmax(0, ${1 - artifactWorkspace.artifactRatio}fr) minmax(0, ${artifactWorkspace.artifactRatio}fr)`
     : "minmax(0, 1fr) minmax(0, 0fr)";
 
-  const selectedModelDefaultOptions = modelOptionPolicyDisabled
-    ? EMPTY_CONVERSATION_OPTIONS
-    : (selectedModel?.defaultOptions ?? EMPTY_CONVERSATION_OPTIONS);
   const {
     fileDragActive,
     onFileDragEnter,
@@ -760,13 +751,10 @@ export function AppChatArea() {
     availableTools: temporaryMode ? temporaryAvailableTools : availableTools,
     selectedToolIDs: temporaryMode ? temporarySelectedToolIDs : selectedToolIDs,
     selectedSkills,
-    defaultToolIDs,
     queuedMessages: temporaryMode ? EMPTY_LIST : queuedMessages,
     maxSelectedTools: mcpMaxSelectedTools,
     toolsLoading,
     options: effectiveOptions,
-    defaultOptions: selectedModelDefaultOptions,
-    modelOptionPolicy,
     modelLoading: modelsLoading,
     dropActive: fileDragActive,
     temporaryMode,
@@ -776,10 +764,6 @@ export function AppChatArea() {
     onSelectedToolsChange,
     maxSelectedSkills: mcpMaxSelectedTools,
     onSelectedSkillsChange,
-    onDefaultToolsChange: onDefaultToolIDsChange,
-    onOptionsChange: setModelOptions,
-    onOptionsReset: resetModelOptions,
-    onOptionsDefaultRestore: restoreBackendDefaultModelOptions,
     onAttachExistingFile,
     onUploadFiles,
     onCaptureScreenshot,

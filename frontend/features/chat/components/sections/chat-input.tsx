@@ -108,7 +108,6 @@ type ChatInputProps = {
   availableTools: MCPToolDTO[];
   selectedToolIDs: number[];
   selectedSkills: SkillSummaryDTO[];
-  defaultToolIDs: number[];
   queuedMessages: QueuedComposerMessage[];
   maxSelectedTools: number;
   maxSelectedSkills: number;
@@ -123,7 +122,6 @@ type ChatInputProps = {
   onModelCatalogRefresh?: () => void | Promise<void>;
   onSelectedToolsChange: (toolIDs: number[]) => void;
   onSelectedSkillsChange: (skills: SkillSummaryDTO[]) => void;
-  onDefaultToolsChange: (toolIDs: number[]) => void | Promise<void>;
   onAttachExistingFile: (file: FileObjectDTO) => void | Promise<void>;
   onUploadFiles: (files: File[]) => void | Promise<void>;
   onCaptureScreenshot: () => void | Promise<void>;
@@ -253,7 +251,6 @@ function ChatInputComponent({
   availableTools,
   selectedToolIDs,
   selectedSkills,
-  defaultToolIDs,
   queuedMessages,
   maxSelectedTools,
   maxSelectedSkills,
@@ -268,7 +265,6 @@ function ChatInputComponent({
   onModelCatalogRefresh,
   onSelectedToolsChange,
   onSelectedSkillsChange,
-  onDefaultToolsChange,
   onAttachExistingFile,
   onUploadFiles,
   onCaptureScreenshot,
@@ -925,12 +921,9 @@ function ChatInputComponent({
                 <ChatMCP
                   availableTools={availableTools}
                   selectedToolIDs={selectedToolIDs}
-                  defaultToolIDs={defaultToolIDs}
                   maxSelectedTools={maxSelectedTools}
-                  placementPreference={isConversationMode ? "top" : "bottom"}
                   disabled={loading || uploading || toolsLoading}
                   onSelectedToolsChange={onSelectedToolsChange}
-                  onDefaultToolsChange={onDefaultToolsChange}
                 />
               ) : null}
 

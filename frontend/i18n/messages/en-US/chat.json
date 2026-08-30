@@ -406,6 +406,8 @@
     "voiceListeningPlaceholder": "Receiving voice input…",
     "modelOptions": "Parameters",
     "smartSearch": "Smart search",
+    "smartSearchEnabled": "Smart search on",
+    "smartSearchDisabled": "Smart search off",
     "smartSearchSelected": "{count} smart search tools enabled",
     "mcpTools": "MCP tools",
     "mcpToolsSelected": "{count} tools enabled",
