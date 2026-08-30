@@ -72,9 +72,10 @@ import type { MCPToolDTO } from "@/shared/api/mcp.types";
 import type { SkillSummaryDTO } from "@/shared/api/skills.types";
 import { StreamdownRender } from "@/shared/components/markdown/streamdown-render";
 import { useDialogSnapshot } from "@/shared/hooks/use-dialog-snapshot";
+import { useScrollFadeFallbackRef } from "@/shared/hooks/use-scroll-fade-fallback-ref";
 import type { BillingDisplayCurrency } from "@/shared/lib/billing-display";
 import { formatBytes, resolveFileExtension, resolveFileIcon } from "@/shared/lib/file-display";
-import { resolveFileProcessingBadge } from "@/shared/lib/file-processing";
+import { isFileProcessing, resolveFileProcessingBadge } from "@/shared/lib/file-processing";
 import type { ModelOptionPolicy } from "@/shared/lib/model-option-policy";
 import { isSendShortcutEvent } from "@/shared/lib/platform-shortcuts";
 
@@ -341,6 +342,7 @@ function ChatInputComponent({
   const inputGroupMeasureRef = React.useRef<HTMLDivElement | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const markdownPreviewRef = React.useRef<HTMLDivElement | null>(null);
+  const attachmentScrollFadeRef = useScrollFadeFallbackRef<HTMLDivElement>();
   const composingRef = React.useRef(false);
   const [inputGroupHeight, setInputGroupHeight] = React.useState<number | null>(null);
   const hasDraftText = draft.trim().length > 0;
@@ -677,7 +679,7 @@ function ChatInputComponent({
             key="markdown-preview"
             role="region"
             aria-label={tComposer("markdownPreview")}
-            className="absolute inset-x-0 z-[60] max-h-[40dvh] min-h-16 overflow-y-auto rounded-xl border-[0.5px] border-border/70 bg-pure/85 px-5 py-4 text-[15px] text-foreground shadow-xs backdrop-blur-xl scroll-fade-12"
+            className="absolute inset-x-0 z-[60] max-h-[40dvh] min-h-16 overflow-y-auto rounded-xl border-[0.5px] border-border/70 bg-pure/85 px-5 py-4 text-[15px] text-foreground shadow-xs backdrop-blur-xl"
             style={{ bottom: inputGroupHeight + 8 }}
             initial={{ opacity: 0, scale: 0.99, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -740,34 +742,40 @@ function ChatInputComponent({
                   </button>
                 </div>
               ) : null}
-              <AttachmentGroup className="max-h-[196px] w-full flex-col gap-2 overflow-y-auto scroll-fade-12 px-1.5 pb-1 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] max-sm:scroll-fade-none sm:max-h-none sm:flex-row sm:scroll-fade-x sm:overflow-x-auto sm:overflow-y-visible sm:pr-1.5 [&::-webkit-scrollbar]:hidden">
+              <AttachmentGroup
+                ref={attachmentScrollFadeRef}
+                className="max-h-[196px] w-full flex-col gap-2 overflow-y-auto scroll-fade-12 px-1.5 pb-1 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] max-sm:scroll-fade-none sm:max-h-none sm:flex-row sm:scroll-fade-x sm:overflow-x-auto sm:overflow-y-visible sm:pr-1.5 [&::-webkit-scrollbar]:hidden"
+              >
                 {attachments.map((item) => {
                   const badge = resolveFileProcessingBadge(item, (key, values) => tFileStatus(key, values));
                   const FileIcon = resolveFileIcon(item);
                   const failed = badge.tone === "danger" || badge.tone === "warning";
-                  const processing = !failed && badge.tone !== "success";
+                  const backgroundProcessing = !failed && isFileProcessing(item);
                   const meta = formatAttachmentMeta(item.fileName, item.sizeBytes);
                   return (
                     <Attachment
                       key={item.fileID}
-                      state={failed ? "error" : processing ? "processing" : "done"}
+                      state={failed ? "error" : "done"}
+                      aria-busy={backgroundProcessing}
                       size="sm"
                       className="h-12 w-full border-0 bg-muted/35 px-2 text-left hover:bg-muted/50 dark:bg-white/[0.06] dark:hover:bg-white/[0.09] sm:w-[228px] sm:px-2.5"
                     >
                       <AttachmentMedia className="size-6 bg-transparent text-muted-foreground">
-                        {processing ? (
-                          <LoaderCircle className="size-5 animate-spin" strokeWidth={1.8} />
-                        ) : (
-                          <FileIcon className="size-5" strokeWidth={1.6} />
-                        )}
+                        <FileIcon className="size-5" strokeWidth={1.6} />
                       </AttachmentMedia>
                       <AttachmentContent className="flex min-w-0 flex-1 flex-col justify-center px-0 py-0">
                         <AttachmentTitle className="text-[12px] leading-4 text-foreground/90" title={item.fileName}>
                           {item.fileName}
                         </AttachmentTitle>
                         <AttachmentDescription className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] leading-none">
-                          <span className="min-w-0 shrink truncate" title={failed ? badge.detail : undefined}>
-                            {failed ? `${badge.label} · ${meta}` : meta}
+                          {backgroundProcessing ? (
+                            <LoaderCircle className="size-3 shrink-0 animate-spin" strokeWidth={1.8} />
+                          ) : null}
+                          <span
+                            className="min-w-0 shrink truncate"
+                            title={failed || backgroundProcessing ? badge.detail : undefined}
+                          >
+                            {failed || backgroundProcessing ? `${badge.label} · ${meta}` : meta}
                           </span>
                           {item.ragOptOut && item.fileCategory !== "image" ? (
                             <span
@@ -812,7 +820,7 @@ function ChatInputComponent({
                         {item.fileName}
                       </AttachmentTitle>
                       <AttachmentDescription className="mt-1 text-[11px] leading-none">
-                        Uploading · {formatBytes(item.sizeBytes)}
+                        {tComposer("uploading")} · {formatBytes(item.sizeBytes)}
                       </AttachmentDescription>
                     </AttachmentContent>
                   </Attachment>
@@ -823,6 +831,19 @@ function ChatInputComponent({
                   file={stablePreviewAttachment}
                   open={previewAttachment !== null}
                   onOpenChange={closePreviewDialog}
+                  loadContent={stablePreviewAttachment.localFile
+                    ? async (_file, signal) => {
+                        if (signal.aborted) {
+                          throw new DOMException("The operation was aborted", "AbortError");
+                        }
+                        return {
+                          blob: stablePreviewAttachment.localFile as File,
+                          contentType: stablePreviewAttachment.localFile?.type || "application/octet-stream",
+                          disposition: null,
+                          contentLength: stablePreviewAttachment.localFile?.size ?? null,
+                        };
+                      }
+                    : undefined}
                 />
               ) : null}
             </div>
@@ -882,7 +903,7 @@ function ChatInputComponent({
                 });
               }
 
-              if (!temporaryMode && files.length > 0) {
+              if (files.length > 0) {
                 if (!event.clipboardData.getData("text/plain")) {
                   event.preventDefault();
                 }
@@ -916,84 +937,69 @@ function ChatInputComponent({
 
           <InputGroupAddon align="block-end" className="items-center justify-between pt-2">
             <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-				{!temporaryMode ? (
-				<DropdownMenu
-                modal={false}
-                open={toolsMenuOpen}
-                onOpenChange={(open) => {
-                  setToolsMenuOpen(open);
-                  if (!open) {
-                    setToolsMenuHovered(false);
-                  }
-                }}
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <InputGroupButton
-                        id="chat-tools-menu-trigger"
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8"
-                        disabled={loading || uploading}
-                        aria-label={tComposer("openTools")}
-                        onMouseEnter={() => setToolsMenuHovered(true)}
-                        onMouseLeave={() => setToolsMenuHovered(false)}
-                      >
-                        <PlusIcon
-                          size={20}
-                          strokeWidth={1.4}
-                          animate={toolsMenuHovered || toolsMenuOpen ? "default" : undefined}
-                        />
-                      </InputGroupButton>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {tComposer("openTools")}
-                  </TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent side="bottom" align="start" sideOffset={8} className="w-36">
-                  <DropdownMenuItem
-                    onMouseEnter={() => setHoveredTool("upload")}
-                    onMouseLeave={() => setHoveredTool((prev) => (prev === "upload" ? null : prev))}
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      onSelectUploadTool();
-                    }}
-                  >
-                    <LinkIcon size={12} strokeWidth={1.5} animate={hoveredTool === "upload" ? "default" : undefined} />
-                    {tComposer("uploadFile")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onMouseEnter={() => setHoveredTool("screenshot")}
-                    onMouseLeave={() => setHoveredTool((prev) => (prev === "screenshot" ? null : prev))}
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      onSelectScreenshotTool();
-                    }}
-                  >
-                    <Crop size={12} strokeWidth={1.5} animate={hoveredTool === "screenshot" ? "default" : undefined} />
-                    {tComposer("screenshot")}
-                  </DropdownMenuItem>
-                  {hasDraftText ? (
+              {!temporaryMode ? (
+                <DropdownMenu
+                  modal={false}
+                  open={toolsMenuOpen}
+                  onOpenChange={(open) => {
+                    setToolsMenuOpen(open);
+                    if (!open) {
+                      setToolsMenuHovered(false);
+                    }
+                  }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <InputGroupButton
+                          id="chat-tools-menu-trigger"
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8"
+                          disabled={loading || uploading}
+                          aria-label={tComposer("openTools")}
+                          onMouseEnter={() => setToolsMenuHovered(true)}
+                          onMouseLeave={() => setToolsMenuHovered(false)}
+                        >
+                          <PlusIcon
+                            size={20}
+                            strokeWidth={1.4}
+                            animate={toolsMenuHovered || toolsMenuOpen ? "default" : undefined}
+                          />
+                        </InputGroupButton>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {tComposer("openTools")}
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent side="bottom" align="start" sideOffset={8} className="w-36">
                     <DropdownMenuItem
+                      onMouseEnter={() => setHoveredTool("upload")}
+                      onMouseLeave={() => setHoveredTool((prev) => (prev === "upload" ? null : prev))}
                       onSelect={(event) => {
                         event.preventDefault();
-                        setMarkdownPreview((visible) => !visible);
+                        onSelectUploadTool();
                       }}
                     >
-                      {showMarkdownPreview ? (
-                        <EyeOff className="size-3" strokeWidth={1.6} />
-                      ) : (
-                        <Eye className="size-3" strokeWidth={1.6} />
-                      )}
-									{showMarkdownPreview ? tComposer("hideMarkdownPreview") : tComposer("previewMarkdown")}
-									</DropdownMenuItem>
-								) : null}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				) : null}
+                      <LinkIcon size={12} strokeWidth={1.5} animate={hoveredTool === "upload" ? "default" : undefined} />
+                      {tComposer("uploadFile")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onMouseEnter={() => setHoveredTool("screenshot")}
+                      onMouseLeave={() => setHoveredTool((prev) => (prev === "screenshot" ? null : prev))}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        onSelectScreenshotTool();
+                      }}
+                    >
+                      <Crop size={12} strokeWidth={1.5} animate={hoveredTool === "screenshot" ? "default" : undefined} />
+                      {tComposer("screenshot")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
 
               {!modelOptionPolicyDisabled ? (
                 <ChatModelConfig
@@ -1019,6 +1025,7 @@ function ChatInputComponent({
                   selectedToolIDs={selectedToolIDs}
                   defaultToolIDs={defaultToolIDs}
                   maxSelectedTools={maxSelectedTools}
+                  placementPreference={isConversationMode ? "top" : "bottom"}
                   disabled={loading || uploading || toolsLoading}
                   onSelectedToolsChange={onSelectedToolsChange}
                   onDefaultToolsChange={onDefaultToolsChange}
@@ -1028,6 +1035,7 @@ function ChatInputComponent({
               {!isMediaMode ? (
                 <ChatKnowledgeBases
                   selectedIDs={selectedKnowledgeBaseIDs}
+                  placementPreference={isConversationMode ? "top" : "bottom"}
                   disabled={loading || uploading}
                   available={ragAvailable}
                   unavailableReason={ragAvailabilityReason}
@@ -1062,6 +1070,35 @@ function ChatInputComponent({
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
                     {tComposer("htmlVisualPrompt")}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+
+              {hasDraftText ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InputGroupButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={cn(
+                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
+                        showMarkdownPreview && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
+                      )}
+                      disabled={speechInput.active}
+                      aria-label={showMarkdownPreview ? tComposer("hideMarkdownPreview") : tComposer("previewMarkdown")}
+                      aria-pressed={showMarkdownPreview}
+                      onClick={() => setMarkdownPreview((visible) => !visible)}
+                    >
+                      {showMarkdownPreview ? (
+                        <EyeOff className="size-4" strokeWidth={1.6} />
+                      ) : (
+                        <Eye className="size-4" strokeWidth={1.6} />
+                      )}
+                    </InputGroupButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {showMarkdownPreview ? tComposer("hideMarkdownPreview") : tComposer("previewMarkdown")}
                   </TooltipContent>
                 </Tooltip>
               ) : null}

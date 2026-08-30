@@ -352,7 +352,7 @@ export function useChatMessageSubmit({
       let targetBranchScope = plan.targetBranchScope;
       const wasConversationMode = showConversationLayout || visibleMessageCount > 0;
       const createdAt = new Date().toISOString();
-      let sentSuccessfully = false;
+      let terminalResultReceived = false;
       let shouldKeepConversationLayout = false;
       const streamAbortController = new AbortController();
       let targetConversationID = queuedSubmission?.conversationPublicID ?? conversationIDRef.current;
@@ -551,7 +551,7 @@ export function useChatMessageSubmit({
           signal: streamAbortController.signal,
         });
 
-        sentSuccessfully = true;
+        terminalResultReceived = true;
         const assistantMessageSucceeded = (completed.assistantMessage.status || "success") === "success";
         const completedBranchScope: BranchScope = {
           conversationScopeKey: targetConversationScopeKey,
@@ -739,7 +739,14 @@ export function useChatMessageSubmit({
           activeStreamsRef.current.delete(clientRunID);
         }
         activeGenerationRunsRef?.current.delete(clientRunID);
-        onConversationRunDetached?.(clientRunID);
+        if (terminalResultReceived) {
+          // A resolved stream already has an authoritative terminal result.
+          // Settle locally as a fallback even if the final SSE callback was
+          // missed; only uncertain disconnects should remain detached.
+          onConversationRunFinished?.(clientRunID);
+        } else {
+          onConversationRunDetached?.(clientRunID);
+        }
         if (
           branchRunIsVisible(
             targetBranchScope,
@@ -748,7 +755,7 @@ export function useChatMessageSubmit({
             visibleBranchScopePathRef.current,
             visibleMessagesRef.current,
           ) &&
-          !sentSuccessfully &&
+          !terminalResultReceived &&
           !wasConversationMode &&
           !shouldKeepConversationLayout
         ) {
@@ -769,6 +776,7 @@ export function useChatMessageSubmit({
       modelOptions,
       onConversationCreated,
       onConversationRunDetached,
+      onConversationRunFinished,
       onConversationRunStarted,
       options,
       prependNewConversation,

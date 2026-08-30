@@ -2092,6 +2092,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/knowledge-bases/files/embeddings": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "为管理员选中的平台资料提交向量化任务，最多100个；重复提交会幂等跳过",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-knowledge-bases"
+                ],
+                "summary": "批量提交平台资料向量化",
+                "parameters": [
+                    {
+                        "description": "平台资料ID，最多100个",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SubmitPlatformFileEmbeddingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/KnowledgeBaseFileEmbeddingSubmissionResponseDoc"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/KnowledgebaseErrorDoc"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/KnowledgebaseErrorDoc"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/KnowledgebaseErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/knowledge-bases/files/{file_id}": {
             "delete": {
                 "security": [
@@ -4847,7 +4904,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "调用上游 models 接口，仅返回可导入预览，不直接落库",
+                "description": "调用上游 models 接口，返回可导入模型与目录变更预览，不直接落库",
                 "consumes": [
                     "application/json"
                 ],
@@ -4908,7 +4965,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "调用上游 models 接口写入上游真实模型清单，不自动绑定平台模型",
+                "description": "调用上游 models 接口获取完整目录，原子更新远端管理模型可用状态，不删除平台模型或路由配置",
                 "consumes": [
                     "application/json"
                 ],
@@ -4926,6 +4983,18 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "确认允许空模型目录对账",
+                        "name": "allow_empty",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "用户确认的远端目录快照标识",
+                        "name": "expected_snapshot",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4943,6 +5012,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ChannelErrorDoc"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/ChannelErrorDoc"
                         }
@@ -11770,6 +11845,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/files/embeddings": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "为当前用户已完成文本提取的文件提交向量化任务，最多100个；重复提交会幂等跳过",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "批量提交指定文件向量化",
+                "parameters": [
+                    {
+                        "description": "文件ID，最多100个",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SubmitFileEmbeddingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/FileEmbeddingSubmissionResponseDoc"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ConversationErrorDoc"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ConversationErrorDoc"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/ConversationErrorDoc"
+                        }
+                    }
+                }
+            }
+        },
         "/files/processing/statuses": {
             "post": {
                 "security": [
@@ -14207,9 +14339,10 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "由浏览器提交完整纯文本上下文；服务端不创建会话、消息、运行或断线续传记录",
+                "description": "由浏览器提交完整上下文和可选请求级附件；服务端不创建会话、消息、运行、文件或断线续传记录",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/x-ndjson"
@@ -14326,6 +14459,54 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/stats/activity": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询当前用户按计费归属日聚合的模型请求数与 token 消耗，逐日补零",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "查询每日活跃度",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "统计天数(默认365，最大366)",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UserDailyActivityListResponseDoc"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/UserErrorDoc"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/UserErrorDoc"
                         }
                     }
                 }
@@ -17544,6 +17725,7 @@ const docTemplate = `{
                 "createdAt",
                 "defaultKnowledgeBaseIDs",
                 "defaultMCPToolIDs",
+                "defaultModel",
                 "defaultSkillIDs",
                 "description",
                 "icon",
@@ -17573,6 +17755,9 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "defaultModel": {
+                    "type": "string"
                 },
                 "defaultSkillIDs": {
                     "type": "array",
@@ -18043,6 +18228,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "defaultModel": {
+                    "type": "string",
+                    "maxLength": 128
                 },
                 "defaultSkillIDs": {
                     "type": "array",
@@ -18791,6 +18980,57 @@ const docTemplate = `{
                 }
             }
         },
+        "FileEmbeddingSkipResponse": {
+            "type": "object",
+            "required": [
+                "fileID",
+                "reason"
+            ],
+            "properties": {
+                "fileID": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "FileEmbeddingSubmissionResponse": {
+            "type": "object",
+            "required": [
+                "skipped",
+                "submittedFileIDs"
+            ],
+            "properties": {
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/FileEmbeddingSkipResponse"
+                    }
+                },
+                "submittedFileIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "FileEmbeddingSubmissionResponseDoc": {
+            "type": "object",
+            "required": [
+                "data",
+                "errorMsg"
+            ],
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/FileEmbeddingSubmissionResponse"
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
         "FileListResponse": {
             "type": "object",
             "required": [
@@ -18831,6 +19071,7 @@ const docTemplate = `{
         "FileObjectResponse": {
             "type": "object",
             "required": [
+                "canVectorize",
                 "chunkCount",
                 "createdAt",
                 "detectedMIME",
@@ -18852,9 +19093,13 @@ const docTemplate = `{
                 "sha256",
                 "sizeBytes",
                 "status",
-                "updatedAt"
+                "updatedAt",
+                "vectorizationReason"
             ],
             "properties": {
+                "canVectorize": {
+                    "type": "boolean"
+                },
                 "chunkCount": {
                     "type": "integer"
                 },
@@ -18924,12 +19169,16 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                },
+                "vectorizationReason": {
+                    "type": "string"
                 }
             }
         },
         "FileProcessingStatusResponse": {
             "type": "object",
             "required": [
+                "canVectorize",
                 "chunkCount",
                 "completedAt",
                 "detectedMIME",
@@ -18949,9 +19198,13 @@ const docTemplate = `{
                 "ragReady",
                 "ragReason",
                 "startedAt",
-                "updatedAt"
+                "updatedAt",
+                "vectorizationReason"
             ],
             "properties": {
+                "canVectorize": {
+                    "type": "boolean"
+                },
                 "chunkCount": {
                     "type": "integer"
                 },
@@ -19014,6 +19267,9 @@ const docTemplate = `{
                     "x-omitempty": false
                 },
                 "updatedAt": {
+                    "type": "string"
+                },
+                "vectorizationReason": {
                     "type": "string"
                 }
             }
@@ -19675,6 +19931,57 @@ const docTemplate = `{
                 }
             }
         },
+        "KnowledgeBaseFileEmbeddingSkipResponse": {
+            "type": "object",
+            "required": [
+                "fileID",
+                "reason"
+            ],
+            "properties": {
+                "fileID": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "KnowledgeBaseFileEmbeddingSubmissionResponse": {
+            "type": "object",
+            "required": [
+                "skipped",
+                "submittedFileIDs"
+            ],
+            "properties": {
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/KnowledgeBaseFileEmbeddingSkipResponse"
+                    }
+                },
+                "submittedFileIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "KnowledgeBaseFileEmbeddingSubmissionResponseDoc": {
+            "type": "object",
+            "required": [
+                "data",
+                "errorMsg"
+            ],
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/KnowledgeBaseFileEmbeddingSubmissionResponse"
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
         "KnowledgeBaseFileMutationDataResponse": {
             "type": "object",
             "required": [
@@ -19752,25 +20059,38 @@ const docTemplate = `{
         "KnowledgeBaseFileProcessingStatusResponse": {
             "type": "object",
             "required": [
+                "canVectorize",
                 "chunkCount",
                 "detectedMIME",
+                "embedError",
                 "embedStatus",
+                "extractStatus",
                 "fileCategory",
                 "fileID",
                 "processing",
                 "processingReady",
                 "processingStatus",
                 "ragOptOut",
-                "updatedAt"
+                "updatedAt",
+                "vectorizationReason"
             ],
             "properties": {
+                "canVectorize": {
+                    "type": "boolean"
+                },
                 "chunkCount": {
                     "type": "integer"
                 },
                 "detectedMIME": {
                     "type": "string"
                 },
+                "embedError": {
+                    "type": "string"
+                },
                 "embedStatus": {
+                    "type": "string"
+                },
+                "extractStatus": {
                     "type": "string"
                 },
                 "fileCategory": {
@@ -19793,16 +20113,22 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                },
+                "vectorizationReason": {
+                    "type": "string"
                 }
             }
         },
         "KnowledgeBaseFileResponse": {
             "type": "object",
             "required": [
+                "canVectorize",
                 "chunkCount",
                 "createdAt",
                 "detectedMIME",
+                "embedError",
                 "embedStatus",
+                "extractStatus",
                 "fileCategory",
                 "fileID",
                 "fileName",
@@ -19812,9 +20138,13 @@ const docTemplate = `{
                 "processingStatus",
                 "ragOptOut",
                 "sizeBytes",
-                "updatedAt"
+                "updatedAt",
+                "vectorizationReason"
             ],
             "properties": {
+                "canVectorize": {
+                    "type": "boolean"
+                },
                 "chunkCount": {
                     "type": "integer"
                 },
@@ -19824,7 +20154,13 @@ const docTemplate = `{
                 "detectedMIME": {
                     "type": "string"
                 },
+                "embedError": {
+                    "type": "string"
+                },
                 "embedStatus": {
+                    "type": "string"
+                },
+                "extractStatus": {
                     "type": "string"
                 },
                 "fileCategory": {
@@ -19855,6 +20191,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "updatedAt": {
+                    "type": "string"
+                },
+                "vectorizationReason": {
                     "type": "string"
                 }
             }
@@ -24952,6 +25291,38 @@ const docTemplate = `{
                 }
             }
         },
+        "SubmitFileEmbeddingsRequest": {
+            "type": "object",
+            "required": [
+                "fileIDs"
+            ],
+            "properties": {
+                "fileIDs": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "SubmitPlatformFileEmbeddingsRequest": {
+            "type": "object",
+            "required": [
+                "fileIDs"
+            ],
+            "properties": {
+                "fileIDs": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "SubscribeRequest": {
             "type": "object",
             "required": [
@@ -25130,9 +25501,14 @@ const docTemplate = `{
                 "createdUpstreamModels",
                 "existingUpstreamModels",
                 "inactivatedModels",
+                "protectedUpstreamModels",
+                "reactivatedModels",
                 "skippedUpstreamModels",
+                "snapshotID",
                 "syncedModels",
-                "totalUpstream"
+                "totalUpstream",
+                "unchangedUpstreamModels",
+                "updatedUpstreamModels"
             ],
             "properties": {
                 "createdUpstreamModels": {
@@ -25144,8 +25520,17 @@ const docTemplate = `{
                 "inactivatedModels": {
                     "type": "integer"
                 },
+                "protectedUpstreamModels": {
+                    "type": "integer"
+                },
+                "reactivatedModels": {
+                    "type": "integer"
+                },
                 "skippedUpstreamModels": {
                     "type": "integer"
+                },
+                "snapshotID": {
+                    "type": "string"
                 },
                 "syncedModels": {
                     "type": "array",
@@ -25154,6 +25539,12 @@ const docTemplate = `{
                     }
                 },
                 "totalUpstream": {
+                    "type": "integer"
+                },
+                "unchangedUpstreamModels": {
+                    "type": "integer"
+                },
+                "updatedUpstreamModels": {
                     "type": "integer"
                 }
             }
@@ -25567,6 +25958,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "defaultModel": {
+                    "type": "string",
+                    "maxLength": 128
                 },
                 "defaultSkillIDs": {
                     "type": "array",
@@ -26591,6 +26986,55 @@ const docTemplate = `{
                 }
             }
         },
+        "UpstreamModelSyncPlanResponse": {
+            "type": "object",
+            "required": [
+                "addedModels",
+                "inactivatedModels",
+                "protectedModels",
+                "reactivatedModels",
+                "unchangedModels",
+                "updatedModels"
+            ],
+            "properties": {
+                "addedModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "inactivatedModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "protectedModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "reactivatedModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "unchangedModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updatedModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "UpstreamRemoteModelResponse": {
             "type": "object",
             "required": [
@@ -26648,6 +27092,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "items",
+                "snapshotID",
+                "syncPlan",
                 "total"
             ],
             "properties": {
@@ -26656,6 +27102,12 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/UpstreamRemoteModelResponse"
                     }
+                },
+                "snapshotID": {
+                    "type": "string"
+                },
+                "syncPlan": {
+                    "$ref": "#/definitions/UpstreamModelSyncPlanResponse"
                 },
                 "total": {
                     "type": "integer"
@@ -26785,8 +27237,11 @@ const docTemplate = `{
                 "bindingCode",
                 "created",
                 "kindsJSON",
+                "protected",
+                "reactivated",
                 "status",
                 "suggestedProtocol",
+                "updated",
                 "upstreamModelName"
             ],
             "properties": {
@@ -26799,11 +27254,20 @@ const docTemplate = `{
                 "kindsJSON": {
                     "type": "string"
                 },
+                "protected": {
+                    "type": "boolean"
+                },
+                "reactivated": {
+                    "type": "boolean"
+                },
                 "status": {
                     "type": "string"
                 },
                 "suggestedProtocol": {
                     "type": "string"
+                },
+                "updated": {
+                    "type": "boolean"
                 },
                 "upstreamModelName": {
                     "type": "string"
@@ -27719,6 +28183,43 @@ const docTemplate = `{
                 }
             }
         },
+        "UserDailyActivityItem": {
+            "type": "object",
+            "required": [
+                "date",
+                "requestCount",
+                "tokenUsage"
+            ],
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "requestCount": {
+                    "type": "integer"
+                },
+                "tokenUsage": {
+                    "type": "integer"
+                }
+            }
+        },
+        "UserDailyActivityListResponseDoc": {
+            "type": "object",
+            "required": [
+                "data",
+                "errorMsg"
+            ],
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/UserDailyActivityItem"
+                    }
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
         "UserDataResponse": {
             "type": "object",
             "required": [
@@ -27727,6 +28228,17 @@ const docTemplate = `{
             "properties": {
                 "user": {
                     "$ref": "#/definitions/AdminUserResponse"
+                }
+            }
+        },
+        "UserErrorDoc": {
+            "type": "object",
+            "required": [
+                "errorMsg"
+            ],
+            "properties": {
+                "errorMsg": {
+                    "type": "string"
                 }
             }
         },

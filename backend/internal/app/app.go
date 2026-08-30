@@ -108,7 +108,7 @@ type App struct {
 	moderationClient       *moderationclient.Client
 	backgroundCancel       context.CancelFunc
 	// shutdown 是进程关停排空信号：翻转就绪探针并断开订阅型长连接。
-	shutdown 				*lifecycle.Shutdown
+	shutdown *lifecycle.Shutdown
 }
 
 type subscriptionGroupAdapter struct {
@@ -356,6 +356,7 @@ func NewApp() (*App, error) {
 	contentModerationModule := contentmoderationhttp.NewModule(contentModerationHandler)
 	userService.SetAvatarContentOpener(avatarContentOpener{conversationService: conversationService})
 	userService.SetAvatarFileValidator(conversationService)
+	userService.SetActivityStatsRepository(billingRepo)
 	authService.SetAvatarFileValidator(conversationService)
 	memoryService.SetCacheInvalidator(conversationService.InvalidateMemoryCache)
 	shutdownSignal := lifecycle.NewShutdown()
@@ -411,6 +412,7 @@ func NewApp() (*App, error) {
 	knowledgeBaseService.SetFileCleaner(conversationService)
 	knowledgeBaseService.SetFileContentOpener(conversationService)
 	knowledgeBaseService.SetFileUploader(conversationService)
+	knowledgeBaseService.SetFileEmbeddingSubmitter(processingService)
 	knowledgeBaseService.SetLogger(log)
 	conversationService.SetKnowledgeBaseResolver(knowledgeBaseService)
 	knowledgeBaseHandler := knowledgebasehttp.NewHandler(knowledgeBaseService, runtimeCfg)

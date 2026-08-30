@@ -46,6 +46,7 @@ type ConversationProject struct {
 	Name                    string
 	Description             string
 	SystemPrompt            string
+	DefaultModel            string
 	MCPDefaultMode          string
 	DefaultMCPToolIDs       []uint
 	DefaultSkillIDs         []uint
@@ -63,6 +64,7 @@ type ConversationProjectPatch struct {
 	Name                    *string
 	Description             *string
 	SystemPrompt            *string
+	DefaultModel            *string
 	MCPDefaultMode          *string
 	DefaultMCPToolIDs       *[]uint
 	DefaultSkillIDs         *[]uint
@@ -298,6 +300,7 @@ const (
 	FileProcessingStatusQueued     = "queued"
 	FileProcessingStatusExtracting = "extracting"
 	FileProcessingStatusEmbedding  = "embedding"
+	FileSubprocessStatusQueued     = "queued"
 	FileSubprocessStatusProcessing = "processing"
 )
 
@@ -311,6 +314,7 @@ func IsFileProcessing(file FileObject) bool {
 		return true
 	default:
 		return file.ExtractStatus == FileSubprocessStatusProcessing ||
+			file.EmbedStatus == FileSubprocessStatusQueued ||
 			file.EmbedStatus == FileSubprocessStatusProcessing
 	}
 }
