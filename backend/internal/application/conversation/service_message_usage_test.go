@@ -135,7 +135,7 @@ func TestValidateGenerateInputContextBudgetReturnsTypedError(t *testing.T) {
 	if budgetErr.EstimatedTokens <= budgetErr.BudgetTokens {
 		t.Fatalf("expected estimate to exceed budget, got %#v", budgetErr)
 	}
-	if budgetErr.BudgetTokens != int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback("custom-model", capabilities, config.DefaultContextWindowFallbackTokens)) {
+	if budgetErr.BudgetTokens != int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback("custom-model", capabilities, config.DefaultContextWindowFallbackTokens)) {
 		t.Fatalf("unexpected budget in error: %#v", budgetErr)
 	}
 	if budgetErr.Stage != "initial_full" {
@@ -154,7 +154,7 @@ func TestValidateGenerateInputContextBudgetReturnsTypedError(t *testing.T) {
 
 func TestValidateGenerateInputContextBudgetAllowsInputWithinBudget(t *testing.T) {
 	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
-	budget := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback("custom-model", capabilities, config.DefaultContextWindowFallbackTokens))
+	budget := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback("custom-model", capabilities, config.DefaultContextWindowFallbackTokens))
 	input := llm.GenerateInput{Messages: []llm.Message{{Role: "user", Content: "hello"}}}
 	if estimateGenerateInputTokens(input) >= budget {
 		t.Fatal("test input unexpectedly exceeds effective budget")
@@ -253,7 +253,7 @@ func TestTrimGenerateInputHistoryToContextBudgetTreatsCurrentAttachmentsAsAggreg
 
 func TestTrimGenerateInputHistoryToContextBudgetDoesNotTrimAtExactBudget(t *testing.T) {
 	capabilities := `{"contextWindow":20000,"maxOutputTokens":4000}`
-	budget := int64(llm.EffectiveContextBudgetFromCapabilitiesWithFallback("custom-model", capabilities, config.DefaultContextWindowFallbackTokens))
+	budget := int64(domainchannel.EffectiveContextBudgetFromCapabilitiesWithFallback("custom-model", capabilities, config.DefaultContextWindowFallbackTokens))
 	input := llm.GenerateInput{Messages: []llm.Message{{
 		Role:    "user",
 		Content: strings.Repeat("x", int((budget-7)*4)),
