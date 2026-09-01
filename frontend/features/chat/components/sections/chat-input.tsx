@@ -41,10 +41,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ChatMCP } from "@/features/chat/components/sections/chat-mcp";
 import { ChatModelPicker } from "@/features/chat/components/sections/chat-model-picker";
 import { ChatMentionMenuPortal } from "@/features/chat/components/shared/chat-mention-menu";
-import {
-  type ChatMentionMenuKind,
-  useChatMentionMenu,
-} from "@/features/chat/hooks/use-chat-mention-menu";
+import { useChatMentionMenu } from "@/features/chat/hooks/use-chat-mention-menu";
 import {
   type SpeechInputErrorCode,
   useChatSpeechInput,
@@ -409,19 +406,24 @@ function ChatInputComponent({
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
   const showSelectedSkills = selectedSkills.length > 0 && !isMediaMode;
   const {
-    activeIndex: mentionActiveIndex,
+    activeRowKey: mentionActiveRowKey,
+    activeTab: mentionActiveTab,
     handleBlur: handleMentionBlur,
     handleChange: handleMentionChange,
     handleFocus: handleMentionFocus,
     handleKeyDown: handleMentionKeyDown,
+    handleListScroll: handleMentionListScroll,
     handleSelectionChange: handleMentionSelectionChange,
     menuID: mentionMenuID,
     menuLayout: mentionMenuLayout,
     menuRef: mentionMenuRef,
     menuReady: mentionMenuReady,
     open: showMentionMenu,
-    sections: mentionSections,
+    rows: mentionRows,
     select: selectMentionItem,
+    selectTab: selectMentionTab,
+    showTabBar: showMentionTabBar,
+    tabs: mentionTabs,
   } = useChatMentionMenu({
     attachments,
     availableTools,
@@ -457,15 +459,6 @@ function ChatInputComponent({
       });
     },
   });
-  const mentionSectionOffsets = React.useMemo(() => {
-    const offsets = new Map<ChatMentionMenuKind, number>();
-    let offset = 0;
-    for (const section of mentionSections) {
-      offsets.set(section.kind, offset);
-      offset += section.items.length;
-    }
-    return offsets;
-  }, [mentionSections]);
   const onSelectUploadTool = React.useCallback(() => {
     fileInputRef.current?.click();
   }, []);
@@ -784,16 +777,20 @@ function ChatInputComponent({
           ) : null}
 
           <ChatMentionMenuPortal
-            activeIndex={mentionActiveIndex}
+            activeRowKey={mentionActiveRowKey}
+            activeTab={mentionActiveTab}
             menuID={mentionMenuID}
             menuLayout={mentionMenuLayout}
             menuRef={mentionMenuRef}
             menuReady={mentionMenuReady}
             open={showMentionMenu}
-            sectionOffsets={mentionSectionOffsets}
-            sections={mentionSections}
+            rows={mentionRows}
+            showTabBar={showMentionTabBar}
+            tabs={mentionTabs}
             t={tComposer}
+            onListScroll={handleMentionListScroll}
             onSelect={selectMentionItem}
+            onSelectTab={selectMentionTab}
           />
 
           <InputGroupTextarea

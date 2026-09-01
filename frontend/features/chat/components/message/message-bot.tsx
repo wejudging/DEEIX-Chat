@@ -154,6 +154,7 @@ type ChatMessageBotProps = {
   markdownRender?: boolean;
   autoExpandThinking?: boolean;
   autoExpandToolCalls?: boolean;
+  allowFullToolResults?: boolean;
   showModelInfo?: boolean;
   showLatency?: boolean;
   showTokenUsage?: boolean;
@@ -185,6 +186,7 @@ export function ChatMessageBot({
   markdownRender = true,
   autoExpandThinking = true,
   autoExpandToolCalls = true,
+  allowFullToolResults = false,
   showModelInfo = true,
   showLatency = true,
   showTokenUsage = true,
@@ -379,6 +381,8 @@ export function ChatMessageBot({
         autoCollapseReady={hasStreamdownContent || Boolean(item.inlineAlert)}
         autoExpandThinking={autoExpandThinking}
         autoExpandToolCalls={autoExpandToolCalls}
+        runID={item.runID}
+        allowFullToolResults={allowFullToolResults && !messageStreaming}
       />
 
       <div
