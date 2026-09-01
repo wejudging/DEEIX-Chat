@@ -96,7 +96,17 @@ func (w *streamNDJSONWriter) startHeartbeat(interval time.Duration) func() {
 			case <-done:
 				return
 			case <-ticker.C:
-				_ = w.write(map[string]interface{}{"type": "heartbeat"})
+				// Re-check after acquiring the writer lock so a tick selected
+				// concurrently with shutdown cannot start a new response write.
+				w.mu.Lock()
+				select {
+				case <-done:
+					w.mu.Unlock()
+					return
+				default:
+				}
+				_ = w.writeLocked(map[string]interface{}{"type": "heartbeat"})
+				w.mu.Unlock()
 			}
 		}
 	}()
