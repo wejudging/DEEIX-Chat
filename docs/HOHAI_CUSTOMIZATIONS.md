@@ -3,7 +3,7 @@
 This file records HOHAI-specific behavior that must be preserved when merging updates from `upstream/dev`.
 
 Current customization branch: `hohai/custom-branding-billing-v7`.
-The behavior below was recorded against upstream commit `c86c812c` on 2026-08-30.
+The behavior below was recorded against upstream commit `393fbc38` on 2026-09-02.
 
 ## Composer tools
 
@@ -17,7 +17,7 @@ The behavior below was recorded against upstream commit `c86c812c` on 2026-08-30
 ## Visual layout prompt
 
 - The visual layout prompt is enabled by default for first-time browsers.
-- An existing local preference of `false` is still respected, but its composer toggle is hidden. The prompt continues to be passed to chat requests.
+- The composer shows a compact Blocks toggle beside the smart-search control. An existing local preference of `false` is still respected, and the prompt continues to be passed to chat requests.
 
 ## Merge rule
 

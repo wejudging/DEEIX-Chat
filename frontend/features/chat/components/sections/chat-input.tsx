@@ -8,6 +8,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { AudioLines } from "@/components/animate-ui/icons/audio-lines";
+import { Blocks } from "@/components/animate-ui/icons/blocks";
 import { Crop } from "@/components/animate-ui/icons/crop";
 import { Link as LinkIcon } from "@/components/animate-ui/icons/link";
 import { Pause } from "@/components/animate-ui/icons/pause";
@@ -106,6 +107,7 @@ type ChatInputProps = {
   selectedToolIDs: number[];
   selectedSkills: SkillSummaryDTO[];
   queuedMessages: QueuedComposerMessage[];
+  htmlVisualPromptEnabled: boolean;
   maxSelectedTools: number;
   maxSelectedSkills: number;
   toolsLoading: boolean;
@@ -120,6 +122,7 @@ type ChatInputProps = {
   onModelCatalogRefresh?: () => void | Promise<void>;
   onSelectedToolsChange: (toolIDs: number[]) => void;
   onSelectedSkillsChange: (skills: SkillSummaryDTO[]) => void;
+  onHTMLVisualPromptChange: (enabled: boolean) => void;
   onAttachExistingFile: (file: FileObjectDTO) => void | Promise<void>;
   onUploadFiles: (files: File[]) => void | Promise<void>;
   onCaptureScreenshot: () => void | Promise<void>;
@@ -250,6 +253,7 @@ function ChatInputComponent({
   selectedToolIDs,
   selectedSkills,
   queuedMessages,
+  htmlVisualPromptEnabled,
   maxSelectedTools,
   maxSelectedSkills,
   toolsLoading,
@@ -264,6 +268,7 @@ function ChatInputComponent({
   onModelCatalogRefresh,
   onSelectedToolsChange,
   onSelectedSkillsChange,
+  onHTMLVisualPromptChange,
   onAttachExistingFile,
   onUploadFiles,
   onCaptureScreenshot,
@@ -278,6 +283,7 @@ function ChatInputComponent({
   const tComposer = useTranslations("chat.composer");
   const tFileStatus = useTranslations("files.status");
   const locale = useLocale();
+  const [isBlocksHovered, setIsBlocksHovered] = React.useState(false);
   const [isVoiceHovered, setIsVoiceHovered] = React.useState(false);
   const [toolsMenuHovered, setToolsMenuHovered] = React.useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = React.useState(false);
@@ -403,6 +409,7 @@ function ChatInputComponent({
   const composerModeIndicator = resolveComposerModeIndicator(submitDecision, tComposer);
   const ComposerModeIcon = composerModeIndicator?.icon;
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;
+  const showHTMLVisualPromptButton = !isMediaMode;
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
   const showSelectedSkills = selectedSkills.length > 0 && !isMediaMode;
   const {
@@ -939,6 +946,39 @@ function ChatInputComponent({
                   disabled={loading || uploading || toolsLoading}
                   onSelectedToolsChange={onSelectedToolsChange}
                 />
+              ) : null}
+
+              {showHTMLVisualPromptButton ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InputGroupButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={cn(
+                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
+                        htmlVisualPromptEnabled && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
+                      )}
+                      disabled={loading || uploading}
+                      aria-label={tComposer("htmlVisualPrompt")}
+                      aria-pressed={htmlVisualPromptEnabled}
+                      onClick={() => onHTMLVisualPromptChange(!htmlVisualPromptEnabled)}
+                      onMouseEnter={() => setIsBlocksHovered(true)}
+                      onMouseLeave={() => setIsBlocksHovered(false)}
+                    >
+                      <Blocks
+                        size={20}
+                        strokeWidth={1.4}
+                        animate={htmlVisualPromptEnabled ? "default" : isBlocksHovered ? "default" : undefined}
+                      />
+                    </InputGroupButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-72 text-xs leading-5">
+                    {htmlVisualPromptEnabled
+                      ? tComposer("htmlVisualPromptEnabled")
+                      : tComposer("htmlVisualPromptDisabled")}
+                  </TooltipContent>
+                </Tooltip>
               ) : null}
 
             </div>
