@@ -299,7 +299,6 @@ export function AppChatArea() {
     appendAttachmentsForKey,
   } = useChatComposerState(conversationID, {
     preserveDrafts: preserveConversationDrafts,
-    resetToken: newConversationRevision,
     storageScope: sessionUser?.publicID ?? "",
     transient: temporaryMode,
   });
