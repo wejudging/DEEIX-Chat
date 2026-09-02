@@ -444,6 +444,8 @@ export interface BillingOverviewResponse {
   periodUsedUSD: number;
   plan: BillingPlanResponse | null;
   subscriptionEntitlements: SubscriptionEntitlementResponse[];
+  totalSpentNanousd: number;
+  totalSpentUSD: number;
 }
 
 export interface BillingOverviewResponseDoc {
@@ -458,7 +460,6 @@ export interface BillingPlanDataResponse {
 export interface BillingPlanResponse {
   code: string;
   description: string;
-  discountPercent: number;
   featureJSON: string;
   id: number;
   isActive: boolean;
@@ -3568,11 +3569,6 @@ export interface UpdateBillingPlanRequest {
   currency?: string;
   /** @maxLength 255 */
   description: string;
-  /**
-   * @min 0
-   * @max 100
-   */
-  discountPercent: number;
   /**
    * @minLength 1
    * @maxLength 64
@@ -9561,6 +9557,22 @@ export namespace Settings {
    * @secure
    */
   export namespace ChatContextPolicyList {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = Envelope;
+  }
+
+  /**
+   * No description
+   * @tags settings
+   * @name FeaturePolicyList
+   * @summary 查询用户侧功能开关策略
+   * @request GET:/settings/feature-policy
+   * @secure
+   */
+  export namespace FeaturePolicyList {
     export type RequestParams = {};
     export type RequestQuery = {};
     export type RequestBody = never;

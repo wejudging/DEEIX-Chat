@@ -505,6 +505,8 @@
       "title": "Pay as you go",
       "balance": "Balance {value}",
       "description": "No monthly fee, pay only for what you use",
+      "balanceLabel": "Account balance",
+      "totalSpentLabel": "Total spent",
       "topUp": "Top up"
     },
     "deduction": {
@@ -544,7 +546,8 @@
       "otherModels": "Other",
       "empty": "No usage data.",
       "metrics": {
-        "totalCost": "Total cost",
+        "periodCost": "Period cost",
+        "yearCost": "12-month cost",
         "totalTokens": "Total tokens",
         "totalCalls": "Total calls",
         "averageLatency": "Average latency"

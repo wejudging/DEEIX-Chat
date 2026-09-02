@@ -99,6 +99,18 @@ function ActionRow({
   );
 }
 
+function AccountMetricTile({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-md bg-muted/35 px-3 py-3.5 md:px-4 md:py-4">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="text-foreground/55">{icon}</span>
+        <span>{label}</span>
+      </div>
+      <p className="mt-2 truncate text-base font-semibold tabular-nums text-foreground md:text-lg">{value}</p>
+    </div>
+  );
+}
+
 function ValueRow({
   title,
   value,
@@ -180,6 +192,7 @@ type SubscriptionSummaryProps = {
   billingLoading: boolean;
   topUpLoading: boolean;
   paymentDisabled: boolean;
+  topUpVisible: boolean;
   billingPlans: BillingPlanDTO[];
   currentPlan: BillingPlanDTO | null;
   currentPrice: BillingPlanPriceDTO | null;
@@ -220,6 +233,7 @@ export function SubscriptionSummary({
   billingLoading,
   topUpLoading,
   paymentDisabled,
+  topUpVisible,
   billingPlans,
   currentPlan,
   currentPrice,

@@ -13803,6 +13803,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/settings/feature-policy": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "settings"
+                ],
+                "summary": "查询用户侧功能开关策略",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/settings/login-page": {
             "get": {
                 "produces": [
@@ -16065,7 +16089,9 @@ const docTemplate = `{
                 "periodUsedNanousd",
                 "periodUsedUSD",
                 "plan",
-                "subscriptionEntitlements"
+                "subscriptionEntitlements",
+                "totalSpentNanousd",
+                "totalSpentUSD"
             ],
             "properties": {
                 "account": {
@@ -16122,6 +16148,12 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/SubscriptionEntitlementResponse"
                     }
+                },
+                "totalSpentNanousd": {
+                    "type": "integer"
+                },
+                "totalSpentUSD": {
+                    "type": "number"
                 }
             }
         },
@@ -16156,7 +16188,6 @@ const docTemplate = `{
             "required": [
                 "code",
                 "description",
-                "discountPercent",
                 "featureJSON",
                 "id",
                 "isActive",
@@ -16173,9 +16204,6 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
-                },
-                "discountPercent": {
-                    "type": "integer"
                 },
                 "featureJSON": {
                     "type": "string"
@@ -26022,7 +26050,6 @@ const docTemplate = `{
                 "amountUSD",
                 "billingInterval",
                 "description",
-                "discountPercent",
                 "name",
                 "periodCreditUSD"
             ],
@@ -26046,11 +26073,6 @@ const docTemplate = `{
                 "description": {
                     "type": "string",
                     "maxLength": 255
-                },
-                "discountPercent": {
-                    "type": "integer",
-                    "maximum": 100,
-                    "minimum": 0
                 },
                 "name": {
                     "type": "string",
