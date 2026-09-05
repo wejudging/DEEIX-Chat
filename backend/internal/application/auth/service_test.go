@@ -16,7 +16,7 @@ type validateAccessSessionRepo struct {
 	repository.AuthRepository
 	session     *domainuser.Session
 	touchInputs []repository.UpdateSessionActivityInput
-}
+		}
 
 type userViewRepoStub struct {
 	repository.AuthRepository
@@ -67,6 +67,14 @@ func TestBuildUserViewIncludesBillingAccountWithoutSubscription(t *testing.T) {
 	}
 	if view.BillingAccountCurrency != "USD" || view.BillingAccountStatus != "active" {
 		t.Fatalf("unexpected billing account metadata: currency=%q status=%q", view.BillingAccountCurrency, view.BillingAccountStatus)
+	}
+}
+
+func TestCleanupDeletedAccountFilesWithoutProviderKeepsFailuresSilent(t *testing.T) {
+	paths := []string{"avatars/one.png", "uploads/two.txt"}
+	failed := (&Service{}).cleanupDeletedAccountFiles(t.Context(), paths)
+	if len(failed) != len(paths) || failed[0] != paths[0] || failed[1] != paths[1] {
+		t.Fatalf("cleanup failures = %#v, want %#v", failed, paths)
 	}
 }
 

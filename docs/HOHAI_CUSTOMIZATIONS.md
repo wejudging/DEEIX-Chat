@@ -3,7 +3,7 @@
 This file records HOHAI-specific behavior that must be preserved when merging updates from `upstream/dev`.
 
 Current customization branch: `hohai/custom-branding-billing-v7`.
-The behavior below was recorded against upstream commit `393fbc38` on 2026-09-02.
+The behavior below was revalidated against upstream commit `1a95cb0a` on 2026-09-05.
 
 ## Composer tools
 
