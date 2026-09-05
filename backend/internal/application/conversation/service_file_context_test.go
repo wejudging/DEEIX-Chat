@@ -611,7 +611,7 @@ func TestShouldShowAttachmentProcessTraceKeepsCurrentOrIncludedFiles(t *testing.
 
 func TestSplitRetrievalFallbackAttachmentsRespectsFullContextBudget(t *testing.T) {
 	cfg := config.Config{FileFullContextMaxTokens: 10}
-	fallbacks, skipped := splitRetrievalFallbackAttachments([]AttachmentInput{
+	fallbacks, skipped := splitRetrievalFallbackAttachmentsWithinBudget([]AttachmentInput{
 		{
 			FileID:        "small",
 			FileName:      "small.md",
@@ -624,7 +624,7 @@ func TestSplitRetrievalFallbackAttachmentsRespectsFullContextBudget(t *testing.T
 			FileCategory:  "document",
 			ExtractedText: strings.Repeat("token ", 100),
 		},
-	}, cfg)
+	}, cfg, int64(cfg.FileFullContextMaxTokens), 0)
 
 	if len(fallbacks) != 1 || fallbacks[0].FileID != "small" || fallbacks[0].ContextMode != fileContextModeRAGFallback {
 		t.Fatalf("expected only small file to fallback, got %#v", fallbacks)

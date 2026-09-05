@@ -230,22 +230,6 @@ func estimateProviderToolOptionTokens(options map[string]any) int64 {
 	return tokenestimate.Estimate(string(payload)) + 2
 }
 
-// validateGenerateInputContextBudget 在请求进入上游前校验完整输入形态。
-func validateGenerateInputContextBudget(
-	input llm.GenerateInput,
-	modelName string,
-	capabilitiesJSON string,
-	stage string,
-) error {
-	return validateGenerateInputContextBudgetWithFallback(
-		input,
-		modelName,
-		capabilitiesJSON,
-		config.DefaultContextWindowFallbackTokens,
-		stage,
-	)
-}
-
 func validateGenerateInputContextBudgetWithFallback(
 	input llm.GenerateInput,
 	modelName string,
@@ -267,21 +251,6 @@ func validateGenerateInputContextBudgetWithFallback(
 		BudgetTokens:    budgetTokens,
 		Stage:           strings.TrimSpace(stage),
 	}
-}
-
-// trimGenerateInputHistoryToContextBudget 在完整请求超预算时删除最老的完整历史轮次。
-// leading system 前缀、最后一个 user 及其后的当前轮消息始终保留。
-func trimGenerateInputHistoryToContextBudget(
-	input llm.GenerateInput,
-	modelName string,
-	capabilitiesJSON string,
-) (llm.GenerateInput, bool) {
-	return trimGenerateInputHistoryToContextBudgetWithFallback(
-		input,
-		modelName,
-		capabilitiesJSON,
-		config.DefaultContextWindowFallbackTokens,
-	)
 }
 
 func trimGenerateInputHistoryToContextBudgetWithFallback(

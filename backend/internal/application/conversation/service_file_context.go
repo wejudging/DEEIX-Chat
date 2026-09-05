@@ -467,10 +467,6 @@ func mergeRAGFileObjects(groups ...[]model.FileObject) []model.FileObject {
 	return result
 }
 
-func splitRetrievalFallbackAttachments(items []AttachmentInput, cfg config.Config) ([]AttachmentInput, []AttachmentInput) {
-	return splitRetrievalFallbackAttachmentsWithinBudget(items, cfg, int64(cfg.FileFullContextMaxTokens), 0)
-}
-
 // splitRetrievalFallbackAttachmentsWithinBudget shares one aggregate budget
 // with the already selected full-context files. A zero budget intentionally
 // disables full-text fallback after a failed/empty RAG request.

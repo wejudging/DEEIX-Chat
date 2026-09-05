@@ -14,6 +14,34 @@ import (
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/tokenestimate"
 )
 
+func validateGenerateInputContextBudget(
+	input llm.GenerateInput,
+	modelName string,
+	capabilitiesJSON string,
+	stage string,
+) error {
+	return validateGenerateInputContextBudgetWithFallback(
+		input,
+		modelName,
+		capabilitiesJSON,
+		config.DefaultContextWindowFallbackTokens,
+		stage,
+	)
+}
+
+func trimGenerateInputHistoryToContextBudget(
+	input llm.GenerateInput,
+	modelName string,
+	capabilitiesJSON string,
+) (llm.GenerateInput, bool) {
+	return trimGenerateInputHistoryToContextBudgetWithFallback(
+		input,
+		modelName,
+		capabilitiesJSON,
+		config.DefaultContextWindowFallbackTokens,
+	)
+}
+
 func TestMessageUsageAccumulatorCombinesObservedAndUnobservedInput(t *testing.T) {
 	accumulator := &messageUsageAccumulator{}
 
