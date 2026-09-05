@@ -227,7 +227,7 @@ func estimateProviderToolOptionTokens(options map[string]interface{}) int64 {
 	if err != nil || len(payload) == 0 || string(payload) == "null" {
 		return 0
 	}
-	return estimateTokens(string(payload)) + 2
+	return tokenestimate.Estimate(string(payload)) + 2
 }
 
 // validateGenerateInputContextBudget 在请求进入上游前校验完整输入形态。

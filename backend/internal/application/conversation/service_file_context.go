@@ -297,7 +297,7 @@ func attachmentTextTokenEstimate(item AttachmentInput) int64 {
 	if strings.TrimSpace(item.ExtractedText) == "" {
 		return 0
 	}
-	return int64(estimateTokens(item.ExtractedText))
+	return tokenestimate.Estimate(item.ExtractedText)
 }
 
 func fullContextAttachmentTokens(items []AttachmentInput) int64 {
