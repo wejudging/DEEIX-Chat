@@ -198,7 +198,7 @@ func estimateGenerateInputTokens(input llm.GenerateInput) int64 {
 
 // estimateProviderToolOptionTokens 估算由模型 options 追加到请求中的厂商原生工具声明。
 // adapter 会将它们与 input.Tools 合并发送，因此两部分都必须计入最终输入形态。
-func estimateProviderToolOptionTokens(options map[string]interface{}) int64 {
+func estimateProviderToolOptionTokens(options map[string]any) int64 {
 	if len(options) == 0 {
 		return 0
 	}
@@ -207,16 +207,16 @@ func estimateProviderToolOptionTokens(options map[string]interface{}) int64 {
 		return 0
 	}
 	switch typed := tools.(type) {
-	case []map[string]interface{}:
+	case []map[string]any:
 		if len(typed) == 0 {
 			return 0
 		}
-	case []interface{}:
+	case []any:
 		if len(typed) == 0 {
 			return 0
 		}
 		for _, item := range typed {
-			if _, valid := item.(map[string]interface{}); !valid {
+			if _, valid := item.(map[string]any); !valid {
 				return 0
 			}
 		}

@@ -166,12 +166,12 @@ func (e *ContextBudgetError) Unwrap() error {
 }
 
 // MessageErrorDetails 返回适合 HTTP 和流式边界层透传的结构化错误详情。
-func MessageErrorDetails(err error) map[string]interface{} {
+func MessageErrorDetails(err error) map[string]any {
 	var budgetErr *ContextBudgetError
 	if !errors.As(err, &budgetErr) || budgetErr == nil {
 		return nil
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"estimated_tokens": budgetErr.EstimatedTokens,
 		"budget_tokens":    budgetErr.BudgetTokens,
 		"stage":            budgetErr.Stage,
