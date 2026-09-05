@@ -16,7 +16,7 @@ type validateAccessSessionRepo struct {
 	repository.AuthRepository
 	session     *domainuser.Session
 	touchInputs []repository.UpdateSessionActivityInput
-		}
+}
 
 type userViewRepoStub struct {
 	repository.AuthRepository

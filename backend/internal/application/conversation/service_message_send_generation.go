@@ -243,7 +243,7 @@ type messageGenerationRunner struct {
 	firstVisibleDeltaLatencyMS  int64
 	streamedText                strings.Builder
 	responsesBackgroundRecovery openAIResponsesBackgroundRecoveryState
-		lastAttemptObservation      *generationAttemptObservation
+	lastAttemptObservation      *generationAttemptObservation
 	modelName                    string
 	capabilitiesJSON             string
 	fallbackContextWindow        int
