@@ -56,11 +56,11 @@ type routeGenerationPlan struct {
 	filteredOptions          map[string]any
 	// llmMessages 是预算裁剪后的完整上下文，工具回灌在其上追加；fullLLMMessages 是它在剥离
 	// Responses instructions 与有状态续传裁剪之前的副本，用于续传指纹与账单输入估算。
-	llmMessages               []llm.Message
-	fullLLMMessages           []llm.Message
-	generateInput             llm.GenerateInput
-	estimatedPromptTokens     int64
-	fullContextPromptTokens   int64
+	llmMessages             []llm.Message
+	fullLLMMessages         []llm.Message
+	generateInput           llm.GenerateInput
+	estimatedPromptTokens   int64
+	fullContextPromptTokens int64
 	// historyTrimmed records any input-history pruning performed before the first upstream call;
 	// a response produced from a pruned prompt must not be reused as a stateful continuation.
 	historyTrimmed            bool
@@ -244,9 +244,9 @@ type messageGenerationRunner struct {
 	streamedText                strings.Builder
 	responsesBackgroundRecovery openAIResponsesBackgroundRecoveryState
 	lastAttemptObservation      *generationAttemptObservation
-	modelName                    string
-	capabilitiesJSON             string
-	fallbackContextWindow        int
+	modelName                   string
+	capabilitiesJSON            string
+	fallbackContextWindow       int
 }
 
 // emitVisibleDelta 把一段可见增量交给客户端回调，并记录首字延迟与累计可见文本。
