@@ -104,7 +104,9 @@ export function SettingsSubscription() {
   const [selectedEPayType, setSelectedEPayType] = React.useState("alipay");
   const [topUpDialogOpen, setTopUpDialogOpen] = React.useState(false);
   const initialBillingActionHandledRef = React.useRef(false);
-  const billingMode: BillingMode = billingConfig?.mode ?? "self";
+  // HOHAI keeps the global mode on pay-as-you-go, but the per-user overview reports `period`
+  // while a legacy subscription is still running so its remaining credit can be rendered.
+  const billingMode: BillingMode = billingOverview?.mode ?? billingConfig?.mode ?? "self";
   const billingDisplay = React.useMemo<BillingDisplayOptions>(
     () => ({
       currency: normalizeBillingDisplayCurrency(billingConfig?.displayCurrency),
@@ -241,7 +243,7 @@ export function SettingsSubscription() {
         billingLoading={billingLoading}
         topUpLoading={topUpLoading}
         paymentDisabled={paymentDisabled}
-        billingAccount={billingAccount}
+        billingOverview={billingOverview}
         billingDisplay={billingDisplay}
         onOpenTopUpDialog={() => setTopUpDialogOpen(true)}
       />

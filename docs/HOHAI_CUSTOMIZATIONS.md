@@ -24,6 +24,27 @@ The behavior below was revalidated against upstream commit `bb4e8fe0` on 2026-09
 HOHAI only bills by usage, so the customer-facing subscription flow is retired. Admin plan,
 redemption and payment configuration management stay untouched.
 
+### Legacy subscribers (stock, not new sales)
+
+Cutting off new sales must not strand the subscribers who already paid, so the backend keeps a
+per-user override while the global mode stays `usage`:
+
+- `billing.Service.resolveEffectiveBillingMode` returns `period` for a user that holds an active
+  non-free subscription while the global mode is `usage`; every other user keeps the global mode.
+  `AuthorizeUsage`, `RecordUsageWithAuthorization`, `BuildUsageLedger` and `GetBillingOverview` go
+  through it instead of reading `s.repo.GetBillingMode(ctx)` directly.
+- Plan credit therefore still works: `AuthorizeUsage` reserves the current period credit, and
+  settlement spends plan credit first and only bills the overage to the usage balance.
+- `CreatePaymentOrder` and `SetUserSubscriptionByPlanCode` keep reading the *global* mode, so new
+  subscription purchases and admin tier assignment stay blocked while the site is pay-as-you-go.
+- `GetBillingOverview` reports `mode: "period"` for those users, so `/setting/subscription` renders a
+  compact legacy plan card (`subscriptionPage.legacyPlan` — 订阅中, 剩余额度, 有效期至 and the
+  first-credit-then-balance explanation) above the usual balance row, even though
+  `billingConfig.mode` stays `usage`.
+- When the last legacy subscription expires the override disappears on its own: no data migration,
+  ledger rewrite or data backfill is involved, and the site becomes purely pay-as-you-go.
+- Covered by `backend/internal/application/billing/service_legacy_subscription_mode_test.go`.
+
 - The settings page `/setting/subscription` is titled **按量计费 / Pay as you go**, and its settings
   sidebar entry is **充值 / Top up** (`settings.subscription`).
 - The page keeps the usage summary (a single top-up row), the activity heatmap, the usage trend and
@@ -39,8 +60,8 @@ redemption and payment configuration management stay untouched.
   enabled (HOHAI runs Alipay only) the row spans the dialog and shows the blue Alipay mark from
   `frontend/public/branding/alipay.svg`. Adding a second channel falls back to two columns.
 - Client balances stay at two decimals, and `settings.subscriptionPage` keeps only the
-  `usageBilling`, `selfMode`, `activity`, `usageTrend`, `usageLog`, `billingTooltip`, `payment`,
-  `topUp`, `actions` and `toasts` groups it still renders.
+  `usageBilling`, `legacyPlan`, `selfMode`, `activity`, `usageTrend`, `usageLog`, `billingTooltip`,
+  `payment`, `topUp`, `actions` and `toasts` groups it still renders.
 - Sidebar identity has exactly two values, `Free` and `Paid`, covered by
   `pnpm test:account-plan-identity`:
   - An active paid plan or tier, or a positive usage balance, resolves to `Paid`; everything else
@@ -64,3 +85,7 @@ language-aware labels, the `Banknote`-based top-up entries, the localised Alipay
 single 按量计费 heading that exists only in the page header (not duplicated inside the summary card).
 Upstream may re-introduce `settings.subscriptionPage.plans`, `payment` dialog copy or a
 `credit-card` upgrade entry; those must not come back on the customer surface.
+The pay-as-you-go switch also carries a backend override: keep `resolveEffectiveBillingMode` and
+`hasActivePaidSubscription` resolving `period` for stock subscribers, and keep the
+`subscriptionPage.legacyPlan` card. If upstream rewrites `AuthorizeUsage` or `GetBillingOverview`,
+re-apply the per-user resolution rather than restoring a direct `s.repo.GetBillingMode(ctx)` read.

@@ -1,16 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { Banknote } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { BadgeCheck, Banknote } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { formatAccountBalance } from "@/features/settings/model/subscription-format";
+import {
+  formatAccountBalance,
+  formatMediumDate,
+  formatPlanCredit,
+} from "@/features/settings/model/subscription-format";
 import type { BillingOverviewData } from "@/shared/api/billing.types";
 import type { BillingDisplayOptions } from "@/shared/lib/billing-display";
 
 type BillingMode = "period" | "usage" | "self";
-type BillingAccount = NonNullable<BillingOverviewData["overview"]>["account"];
+type BillingOverview = BillingOverviewData["overview"];
 
 function ActionRow({
   title,
@@ -57,7 +61,7 @@ type SubscriptionSummaryProps = {
   billingLoading: boolean;
   topUpLoading: boolean;
   paymentDisabled: boolean;
-  billingAccount: BillingAccount | null;
+  billingOverview: BillingOverview | null;
   billingDisplay: BillingDisplayOptions;
   onOpenTopUpDialog: () => void;
 };
@@ -67,11 +71,12 @@ export function SubscriptionSummary({
   billingLoading,
   topUpLoading,
   paymentDisabled,
-  billingAccount,
+  billingOverview,
   billingDisplay,
   onOpenTopUpDialog,
 }: SubscriptionSummaryProps) {
   const t = useTranslations("settings.subscriptionPage");
+  const locale = useLocale();
 
   if (billingMode === "self") {
     return (
@@ -81,22 +86,78 @@ export function SubscriptionSummary({
     );
   }
 
-  // HOHAI retired customer-facing subscription plans: usage billing and any legacy period
-  // subscription now render the same pay-as-you-go balance row with a top-up action.
+  const billingAccount = billingOverview?.account ?? null;
+  const topUpAction = (
+    <Button type="button" disabled={billingLoading || topUpLoading || paymentDisabled} onClick={onOpenTopUpDialog}>
+      <Banknote className="size-3.5" />
+      {t("usageBilling.topUp")}
+    </Button>
+  );
+  const balanceRow = (
+    <ActionRow
+      value={
+        t("usageBilling.balance", {
+          value: formatAccountBalance(billingAccount?.balanceUSD ?? 0, billingDisplay),
+        })
+      }
+      description={t("usageBilling.description")}
+      action={topUpAction}
+    />
+  );
+
+  // HOHAI keeps selling top-ups only, but subscribers that bought a plan while subscriptions were
+  // still on sale keep consuming the plan credit they already paid for. They get a compact plan
+  // card above the regular balance row so the remaining credit stays visible until it expires.
+  const currentEntitlement =
+    billingMode === "period"
+      ? (billingOverview?.subscriptionEntitlements?.find((item) => item.isCurrent) ??
+        billingOverview?.subscriptionEntitlements?.[0] ??
+        null)
+      : null;
+
+  if (billingMode === "period" && currentEntitlement) {
+    const planName =
+      currentEntitlement.plan.name?.trim() || currentEntitlement.plan.code.trim().toUpperCase();
+    const remainingCredit = formatPlanCredit(billingOverview?.periodRemainingUSD ?? 0, billingDisplay);
+    const totalCredit = formatPlanCredit(billingOverview?.periodCreditUSD ?? 0, billingDisplay);
+    const expiresAt = formatMediumDate(currentEntitlement.currentPeriodEndAt, locale);
+
+    return (
+      <section className="space-y-6 px-0.5 md:space-y-7 xl:space-y-8 xl:px-1">
+        <div className="space-y-3 rounded-xl bg-muted/35 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <BadgeCheck aria-hidden="true" className="size-4 shrink-0 text-primary" />
+              <span className="truncate text-sm font-semibold text-foreground">{planName}</span>
+            </div>
+            <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+              {t("legacyPlan.status")}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t("legacyPlan.remaining")}</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                {remainingCredit} / {totalCredit}
+              </p>
+            </div>
+            <div className="rounded-lg bg-background/70 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">{t("legacyPlan.expiresAt")}</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{expiresAt}</p>
+            </div>
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t("legacyPlan.note")}</p>
+        </div>
+        {balanceRow}
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-6 px-0.5 md:space-y-7 xl:space-y-8 xl:px-1">
       {/* HOHAI: the page header already renders “按量计费”, so the card starts at the balance
           line — do not reintroduce a second usage-billing title here. */}
-      <ActionRow
-        value={t("usageBilling.balance", { value: formatAccountBalance(billingAccount?.balanceUSD ?? 0, billingDisplay) })}
-        description={t("usageBilling.description")}
-        action={
-          <Button type="button" disabled={billingLoading || topUpLoading || paymentDisabled} onClick={onOpenTopUpDialog}>
-            <Banknote className="size-3.5" />
-            {t("usageBilling.topUp")}
-          </Button>
-        }
-      />
+      {balanceRow}
     </section>
   );
 }

@@ -473,6 +473,12 @@
       "totalSpentLabel": "累计花费",
       "topUp": "充值"
     },
+    "legacyPlan": {
+      "status": "订阅中",
+      "remaining": "剩余额度",
+      "expiresAt": "有效期至",
+      "note": "订阅到期前优先扣减套餐额度，超出部分从按量余额扣除；本站已停止新订阅，到期后自动转为按量计费。"
+    },
     "selfMode": {
       "title": "计费模式",
       "value": "自用模式"

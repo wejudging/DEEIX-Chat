@@ -30,6 +30,14 @@ const (
 	nativeToolPricingSource    = "provider_official_defaults"
 )
 
+// HOHAI 定制：全局计费模式决定购买入口与新用户计费方式，
+// 存量周期订阅用户可以在按量计费(usage)站点上继续按套餐额度结算。
+const (
+	billingModeSelf   = "self"
+	billingModeUsage  = "usage"
+	billingModePeriod = "period"
+)
+
 // UserSubscriptionSnapshot 描述用户当前订阅的派生结果。
 type UserSubscriptionSnapshot struct {
 	UserID            uint
@@ -1188,7 +1196,11 @@ func (s *Service) RecordUsageWithAuthorization(ctx context.Context, usage *domai
 	}
 	if mode == "" {
 		var err error
-		mode, err = s.repo.GetBillingMode(ctx)
+		modeAt := usage.BillingAt
+		if modeAt.IsZero() {
+			modeAt = time.Now()
+		}
+		mode, err = s.resolveEffectiveBillingMode(ctx, usage.UserID, modeAt)
 		if err != nil {
 			return err
 		}
@@ -1247,7 +1259,7 @@ func (s *Service) RecordUsageWithAuthorization(ctx context.Context, usage *domai
 
 // AuthorizeUsage 固定请求开始时的计费模式，并为付费调用原子预留预算。
 func (s *Service) AuthorizeUsage(ctx context.Context, userID uint, platformModelName string, refNo string) (*domainbilling.UsageAuthorization, error) {
-	mode, err := s.repo.GetBillingMode(ctx)
+	mode, err := s.resolveEffectiveBillingMode(ctx, userID, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -1496,6 +1508,47 @@ func (s *Service) currentPeriodPlan(
 	return plan, monthStart, monthEnd, nil
 }
 
+// resolveEffectiveBillingMode 返回用户实际生效的计费模式。
+//
+// HOHAI 定制：站点已切换为按量计费(usage)，但存量周期订阅用户需要继续消耗已购买的套餐额度，
+// 否则他们会被余额不足直接拦住。因此当全局模式为 usage 且用户仍持有生效中的非免费订阅时，
+// 按 period 结算（先扣套餐额度，超出部分再从按量余额扣除）。
+// 新订阅购买入口保持关闭：CreatePaymentOrder 仍然要求全局模式为 period。
+func (s *Service) resolveEffectiveBillingMode(ctx context.Context, userID uint, now time.Time) (string, error) {
+	mode, err := s.repo.GetBillingMode(ctx)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(mode) != billingModeUsage || userID == 0 {
+		return mode, nil
+	}
+	legacyPeriod, err := s.hasActivePaidSubscription(ctx, userID, now)
+	if err != nil {
+		return "", err
+	}
+	if legacyPeriod {
+		return billingModePeriod, nil
+	}
+	return mode, nil
+}
+
+// hasActivePaidSubscription 判断用户在当前时刻是否持有生效中的非免费周期订阅。
+func (s *Service) hasActivePaidSubscription(ctx context.Context, userID uint, now time.Time) (bool, error) {
+	subscriptions, planMap, err := s.listSubscriptionEntitlements(ctx, []uint{userID}, now)
+	if err != nil {
+		return false, err
+	}
+	subscription, ok := selectCurrentSubscription(subscriptions, planMap, now)
+	if !ok {
+		return false, nil
+	}
+	plan, ok := planMap[subscription.PlanID]
+	if !ok {
+		return false, nil
+	}
+	return !isFreePlanCode(plan.Code), nil
+}
+
 func (s *Service) listSubscriptionEntitlements(
 	ctx context.Context,
 	userIDs []uint,
@@ -1727,7 +1780,7 @@ func (s *Service) BuildUsageLedger(ctx context.Context, input UsagePricingInput)
 		refNo = strings.TrimSpace(input.Authorization.RefNo)
 	}
 	if mode == "" {
-		mode, err = s.repo.GetBillingMode(ctx)
+		mode, err = s.resolveEffectiveBillingMode(ctx, input.UserID, time.Now())
 		if err != nil {
 			return nil, err
 		}
@@ -2872,7 +2925,7 @@ func lastDayOfMonth(year int, month time.Month, location *time.Location) int {
 
 // GetBillingOverview 查询当前用户计费概览。
 func (s *Service) GetBillingOverview(ctx context.Context, userID uint, now time.Time) (*BillingOverview, error) {
-	mode, err := s.repo.GetBillingMode(ctx)
+	mode, err := s.resolveEffectiveBillingMode(ctx, userID, now)
 	if err != nil {
 		return nil, err
 	}

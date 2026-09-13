@@ -473,6 +473,12 @@
       "totalSpentLabel": "Total spent",
       "topUp": "Top up"
     },
+    "legacyPlan": {
+      "status": "Active",
+      "remaining": "Remaining credit",
+      "expiresAt": "Valid until",
+      "note": "Your plan credit is used first until the plan expires and any overage comes out of your pay-as-you-go balance. New subscriptions are closed; after expiry the account moves to pay-as-you-go automatically."
+    },
     "selfMode": {
       "title": "Billing mode",
       "value": "Self-use mode"

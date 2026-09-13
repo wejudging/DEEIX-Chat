@@ -270,7 +270,7 @@ func (r *billingRepositoryStub) ListActivePlans(context.Context) ([]domainbillin
 	panic("not used")
 }
 func (r *billingRepositoryStub) ListActivePricesByPlanIDs(context.Context, []uint) ([]domainbilling.Price, error) {
-	panic("not used")
+	return r.prices, nil
 }
 func (r *billingRepositoryStub) GetPriceByID(_ context.Context, id uint) (*domainbilling.Price, error) {
 	for _, item := range r.prices {
