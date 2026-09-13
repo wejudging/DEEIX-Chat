@@ -10,7 +10,6 @@ import {
   billingDisplayAmountToMinorUnits,
   formatAccountBalance,
 } from "@/features/settings/model/subscription-format";
-import { useAppLocale } from "@/i18n/app-i18n-provider";
 import { useLocalizedErrorMessage } from "@/i18n/use-localized-error";
 import {
   createBillingCheckout,
@@ -84,7 +83,6 @@ type PaymentProvider = "stripe" | "epay";
 export function SettingsSubscription() {
   const t = useTranslations("settings.subscriptionPage");
   const resolveErrorMessage = useLocalizedErrorMessage();
-  const { locale } = useAppLocale();
   const { accessToken } = useAuthSession();
   const [billingConfig, setBillingConfig] = React.useState<BillingRuntimeConfig | null>(null);
   const [billingOverview, setBillingOverview] = React.useState<BillingOverviewData["overview"] | null>(null);
