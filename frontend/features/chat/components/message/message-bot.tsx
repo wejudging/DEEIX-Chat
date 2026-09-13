@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Banknote, ChevronDown, CircleAlert, CreditCard, Film, GalleryHorizontalEnd } from "lucide-react";
+import { Banknote, ChevronDown, CircleAlert, Film, GalleryHorizontalEnd } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
@@ -520,17 +520,11 @@ function InsufficientBalanceAlert({ className }: { className?: string }) {
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             {t("insufficientBalance.description")}
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button asChild size="sm" className="w-full whitespace-nowrap">
+          <div className="mt-3">
+            <Button asChild size="sm" className="w-full whitespace-nowrap sm:w-auto">
               <Link href="/setting/subscription?action=topup">
                 <Banknote className="size-3.5" />
                 {t("insufficientBalance.topUp")}
-              </Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="w-full whitespace-nowrap">
-              <Link href="/setting/subscription?action=plans">
-                <CreditCard className="size-3.5" />
-                {t("insufficientBalance.subscribe")}
               </Link>
             </Button>
           </div>

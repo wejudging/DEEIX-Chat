@@ -217,9 +217,8 @@
     "streamInterrupted": "The generation connection was interrupted. Retry this message.",
     "insufficientBalance": {
       "title": "Insufficient balance",
-      "description": "Top up for pay-as-you-go access, or subscribe for a monthly allowance to continue using paid models.",
-      "topUp": "Top up now",
-      "subscribe": "View plans"
+      "description": "Your balance is too low. Top up to keep using paid models.",
+      "topUp": "Top up now"
     },
     "imageRunning": "Generating image",
     "contextCompressed": "Context was automatically compressed",
@@ -624,13 +623,12 @@
     "secondUnit": "second"
   },
   "billingGuide": {
-    "newChatStatus": "Free plan · Balance {balance}",
-    "upgrade": "Upgrade plan",
-    "dismiss": "Dismiss subscription reminder",
+    "newChatStatus": "Free · Balance {balance}",
+    "topUpShort": "Top up",
+    "dismiss": "Dismiss top-up reminder",
     "paidModelTitle": "This model requires paid credit",
-    "paidModelDescription": "{model} is a paid model. Your balance is zero and you do not have a paid subscription. Top up or choose a plan to continue.",
+    "paidModelDescription": "{model} is a paid model and your balance is zero. Top up to continue.",
     "topUp": "Top up now",
-    "viewPlans": "View plans",
     "keepFree": "Keep using free models"
   },
   "processTrace": {

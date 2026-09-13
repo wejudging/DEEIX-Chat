@@ -1,12 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SpinnerLabel } from "@/components/ui/spinner";
-import { useDialogSnapshot } from "@/shared/hooks/use-dialog-snapshot";
 import {
   billingDisplayAmountToUSD,
   billingDisplayInputSymbol,
@@ -26,6 +26,15 @@ function resolveEPayTypeLabel(type: string, labels: { alipay: string; wxpay: str
   if (type === "wxpay") return labels.wxpay;
   if (type === "qqpay") return labels.qqpay;
   return labels.custom(type);
+}
+
+function resolvePaymentBrandMark(provider: PaymentProvider, epayType: string): ReactNode {
+  // Alipay shows the official blue mark; other channels stay text-only so the row keeps
+  // the dialog's neutral styling.
+  if (provider === "epay" && epayType === "alipay") {
+    return <img src="/branding/alipay.svg" alt="" aria-hidden="true" className="size-4 shrink-0 rounded-[3px]" />;
+  }
+  return null;
 }
 
 type TopUpDialogProps = {
@@ -78,6 +87,34 @@ export function TopUpDialog({
   const stripePaymentAmount = formatProviderPaymentAmountFromUSD(paymentAmountUSD, "stripe", billingDisplay);
   const epayPaymentAmount = formatProviderPaymentAmountFromUSD(paymentAmountUSD, "epay", billingDisplay);
   const inputSymbol = billingDisplayInputSymbol(billingDisplay);
+  const disabled = billingLoading || topUpLoading || paymentDisabled;
+
+  const paymentOptions: { key: string; label: string; amount: string; selected: boolean; mark: ReactNode; select: () => void }[] = [];
+  if (paymentProviders.includes("stripe")) {
+    paymentOptions.push({
+      key: "stripe",
+      label: "Stripe",
+      amount: stripePaymentAmount,
+      selected: selectedPaymentProvider === "stripe",
+      mark: resolvePaymentBrandMark("stripe", ""),
+      select: () => onPaymentProviderChange("stripe"),
+    });
+  }
+  if (paymentProviders.includes("epay")) {
+    for (const item of epayTypes) {
+      paymentOptions.push({
+        key: `epay-${item.type}`,
+        label: item.name || resolveEPayTypeLabel(item.type, epayLabels),
+        amount: epayPaymentAmount,
+        selected: selectedPaymentProvider === "epay" && selectedEPayType === item.type,
+        mark: resolvePaymentBrandMark("epay", item.type),
+        select: () => {
+          onPaymentProviderChange("epay");
+          onEPayTypeChange(item.type);
+        },
+      });
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,51 +140,33 @@ export function TopUpDialog({
               step="0.01"
               className="pl-7"
               onChange={(event) => onAmountChange(event.target.value)}
-              disabled={billingLoading || topUpLoading || paymentDisabled}
+              disabled={disabled}
               aria-label={t("topUp.amountAria")}
             />
           </div>
         </div>
 
-        {!paymentDisabled ? (
+        {!paymentDisabled && paymentOptions.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">{t("payment.method")}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {paymentProviders.includes("stripe") ? (
+            <div className={paymentOptions.length > 1 ? "grid grid-cols-2 gap-2" : "grid grid-cols-1"}>
+              {paymentOptions.map((option) => (
                 <button
+                  key={option.key}
                   type="button"
-                  className={`flex min-h-9 flex-col items-center justify-center rounded-md border px-2 py-1 text-xs ${
-                    selectedPaymentProvider === "stripe" ? "border-foreground bg-muted/25 font-medium" : "border-border bg-transparent text-muted-foreground"
+                  className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                    option.selected
+                      ? "border-foreground bg-muted/25 font-medium"
+                      : "border-border bg-transparent text-muted-foreground hover:bg-muted/20"
                   }`}
-                  disabled={billingLoading || topUpLoading || paymentDisabled}
-                  onClick={() => onPaymentProviderChange("stripe")}
+                  disabled={disabled}
+                  onClick={option.select}
                 >
-                  <span>Stripe</span>
-                  <span className="text-[11px] font-normal tabular-nums opacity-80">{stripePaymentAmount}</span>
+                  {option.mark}
+                  <span className="truncate">{option.label}</span>
+                  <span className="shrink-0 text-xs font-normal tabular-nums opacity-80">{option.amount}</span>
                 </button>
-              ) : null}
-              {paymentProviders.includes("epay")
-                ? epayTypes.map((item) => {
-                  const selected = selectedPaymentProvider === "epay" && selectedEPayType === item.type;
-                  return (
-                    <button
-                      key={item.type}
-                      type="button"
-                      className={`flex min-h-9 flex-col items-center justify-center rounded-md border px-2 py-1 text-xs ${
-                        selected ? "border-foreground bg-muted/25 font-medium" : "border-border bg-transparent text-muted-foreground"
-                      }`}
-                      disabled={billingLoading || topUpLoading || paymentDisabled}
-                      onClick={() => {
-                        onPaymentProviderChange("epay");
-                        onEPayTypeChange(item.type);
-                      }}
-                    >
-                      <span>{item.name || resolveEPayTypeLabel(item.type, epayLabels)}</span>
-                      <span className="text-[11px] font-normal tabular-nums opacity-80">{epayPaymentAmount}</span>
-                    </button>
-                  );
-                })
-                : null}
+              ))}
             </div>
           </div>
         ) : null}
@@ -156,67 +175,8 @@ export function TopUpDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={topUpLoading}>
             {t("actions.cancel")}
           </Button>
-          <Button type="button" disabled={billingLoading || topUpLoading || paymentDisabled} onClick={onSubmit}>
+          <Button type="button" disabled={disabled} onClick={onSubmit}>
             {topUpLoading ? <SpinnerLabel>{t("actions.processing")}</SpinnerLabel> : t("topUp.confirm")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-type RedemptionDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  code: string;
-  billingLoading: boolean;
-  redemptionLoading: boolean;
-  onCodeChange: (value: string) => void;
-  onSubmit: () => void;
-};
-
-export function RedemptionDialog({
-  open,
-  onOpenChange,
-  code,
-  billingLoading,
-  redemptionLoading,
-  onCodeChange,
-  onSubmit,
-}: RedemptionDialogProps) {
-  const t = useTranslations("settings.subscriptionPage");
-  const stableCode = useDialogSnapshot(open ? code : null) ?? "";
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle>{t("redemption.title")}</DialogTitle>
-          <DialogDescription>{t("redemption.description")}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">{t("redemption.code")}</p>
-          <Input
-            value={stableCode}
-            autoComplete="off"
-            className="font-mono"
-            disabled={billingLoading || redemptionLoading}
-            onChange={(event) => onCodeChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                onSubmit();
-              }
-            }}
-            aria-label={t("redemption.code")}
-          />
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={redemptionLoading}>
-            {t("actions.cancel")}
-          </Button>
-          <Button type="button" disabled={billingLoading || redemptionLoading} onClick={onSubmit}>
-            {redemptionLoading ? <SpinnerLabel>{t("actions.processing")}</SpinnerLabel> : t("redemption.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

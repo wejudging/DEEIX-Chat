@@ -3,7 +3,7 @@
 This file records HOHAI-specific behavior that must be preserved when merging updates from `upstream/dev`.
 
 Current customization branch: `hohai/custom-branding-billing-v7`.
-The behavior below was revalidated against upstream commit `1a95cb0a` on 2026-09-05.
+The behavior below was revalidated against upstream commit `bb4e8fe0` on 2026-09-13.
 
 ## Composer tools
 
@@ -19,6 +19,43 @@ The behavior below was revalidated against upstream commit `1a95cb0a` on 2026-09
 - The visual layout prompt is enabled by default for first-time browsers.
 - The composer shows a compact Blocks toggle beside the smart-search control. An existing local preference of `false` is still respected, and the prompt continues to be passed to chat requests.
 
+## Billing and account identity
+
+HOHAI only bills by usage, so the customer-facing subscription flow is retired. Admin plan,
+redemption and payment configuration management stay untouched.
+
+- The settings page `/setting/subscription` is titled **按量计费 / Pay as you go**, and its settings
+  sidebar entry is **充值 / Top up** (`settings.subscription`).
+- The page keeps the usage summary (a single top-up row), the activity heatmap, the usage trend and
+  the usage log. Plan cards, interval/current-plan/entitlement blocks, the plan and payment dialogs
+  and the redemption-code dialog are removed from the customer UI.
+- `?action=topup` opens the top-up dialog. The legacy `?action=plans` link opens the same dialog so
+  old bookmarks and previously pushed routes keep working; both remove the query parameter after load.
+- The top-up dialog lays payment channels out as full-width, centred rows. With a single channel
+  enabled (HOHAI runs Alipay only) the row spans the dialog and shows the blue Alipay mark from
+  `frontend/public/branding/alipay.svg`. Adding a second channel falls back to two columns.
+- Client balances stay at two decimals, and `settings.subscriptionPage` keeps only the
+  `usageBilling`, `selfMode`, `activity`, `usageTrend`, `usageLog`, `billingTooltip`, `payment`,
+  `topUp`, `actions` and `toasts` groups it still renders.
+- Sidebar identity has exactly two values, `Free` and `Paid`, covered by
+  `pnpm test:account-plan-identity`:
+  - An active paid plan or tier, or a positive usage balance, resolves to `Paid`; everything else
+    resolves to `Free`.
+  - The label follows the user's language: 免费 / 付费 in Chinese and Free / Paid in English
+    (`common.freePlan`, `common.paidPlan`). Legacy Pro/Max subscribers now read 付费 / Paid, which is
+    intentional because plan tiers are no longer surfaced.
+- The sidebar pill and the account-menu entry both use the `Banknote` icon with the 充值 / Top up
+  label and link to `/setting/subscription`. `common.upgradePlan` and `common.upgrade` are gone.
+- Chat billing guidance is top-up only: `messages.insufficientBalance` and
+  `billingGuide.paidModelDescription` no longer mention subscribing, the paid-model dialog shows a
+  single full-width 立即充值 action, and the new-chat reminder reads 免费 · 余额 {balance}.
+
 ## Merge rule
 
 When syncing `upstream/dev`, preserve the files and logic listed above, especially the smart-search resolver, the user-settings initialization marker, the visual-prompt default, and the composer button visibility changes.
+
+For billing, re-apply the pay-as-you-go-only customer UI: the 按量计费 page title with a 充值 sidebar
+entry, the removed plan/payment/redemption dialogs, the two-value `Free`/`Paid` identity with
+language-aware labels, the `Banknote`-based top-up entries, and the localised Alipay mark asset.
+Upstream may re-introduce `settings.subscriptionPage.plans`, `payment` dialog copy or a
+`credit-card` upgrade entry; those must not come back on the customer surface.

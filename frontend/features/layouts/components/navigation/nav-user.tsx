@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  Banknote,
   Bell,
   Check,
-  CreditCard,
   Languages,
   LogOut,
   Settings,
   ShieldCheck,
-  Sparkles,
   Wallet,
 } from "lucide-react";
 
@@ -80,13 +79,14 @@ export function NavUser({
   }));
   const skipTriggerFocusRef = React.useRef(false);
   const isAdmin = user.role === "admin" || user.role === "superadmin";
-  const subscriptionTier = sessionUser?.subscriptionTier.trim().toLowerCase() || "free";
-  const hasPaidSubscription = subscriptionTier !== "free";
-  const planLabel = resolveAccountPlanIdentity({
+  const planIdentity = resolveAccountPlanIdentity({
     subscriptionTier: sessionUser?.subscriptionTier,
     subscriptionPlanName: sessionUser?.subscriptionPlanName,
     billingBalanceNanousd: sessionUser?.billingBalanceNanousd,
   });
+  // Keep the identity names in English when the customer picked English, and translate them
+  // for Chinese users (免费 / 付费); HOHAI only exposes these two identities.
+  const planLabel = t(planIdentity === "Paid" ? "paidPlan" : "freePlan");
   const balanceLabel = formatBillingDisplayBalanceFromUSD(sessionUser?.billingBalanceUSD ?? 0, billingDisplay);
 
   useSidebarHoverExpansionLock(open);
@@ -260,8 +260,8 @@ export function NavUser({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
-                  <DropdownMenuItemIcon icon={CreditCard} />
-                  {t("upgradePlan")}
+                  <DropdownMenuItemIcon icon={Banknote} />
+                  {t("topUp")}
                 </DropdownMenuItem>
                 {isAdmin ? (
                   <DropdownMenuItem onSelect={navigateFromMenu("/admin")}>
@@ -291,8 +291,8 @@ export function NavUser({
               className="absolute right-2 h-7 rounded-full bg-background px-2.5 text-[11px] group-data-[collapsible=icon]:hidden"
             >
               <Link href="/setting/subscription">
-                {hasPaidSubscription ? <CreditCard className="size-3" /> : <Sparkles className="size-3" />}
-                {hasPaidSubscription ? t("upgradePlan") : t("upgrade")}
+                <Banknote className="size-3" />
+                {t("topUp")}
               </Link>
             </Button>
           ) : null}

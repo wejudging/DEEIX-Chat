@@ -801,7 +801,7 @@ export function AppChatArea() {
 				<NewChatBillingNotice
 					balanceLabel={billingBalanceLabel}
 					onDismiss={() => setNewChatBillingNoticeDismissed(true)}
-					onUpgrade={() => router.push("/setting/subscription")}
+					onTopUp={() => router.push("/setting/subscription")}
 				/>
 			) : null}
 			titleAdornment={temporaryMode ? (
@@ -948,10 +948,6 @@ export function AppChatArea() {
         onTopUp={() => {
           setBlockedPaidModelName("");
           router.push("/setting/subscription?action=topup");
-        }}
-        onViewPlans={() => {
-          setBlockedPaidModelName("");
-          router.push("/setting/subscription?action=plans");
         }}
       />
 

@@ -217,9 +217,8 @@
     "streamInterrupted": "生成连接已中断，请重试本条消息。",
     "insufficientBalance": {
       "title": "余额不足",
-      "description": "充值后可按量使用，或订阅套餐获得每月额度，继续使用付费模型。",
-      "topUp": "立即充值",
-      "subscribe": "查看订阅"
+      "description": "当前余额不足，充值后即可继续使用付费模型。",
+      "topUp": "立即充值"
     },
     "imageRunning": "正在生成图片",
     "contextCompressed": "上下文已自动压缩",
@@ -624,13 +623,12 @@
     "secondUnit": "秒"
   },
   "billingGuide": {
-    "newChatStatus": "免费版 · 余额 {balance}",
-    "upgrade": "升级订阅",
-    "dismiss": "关闭订阅提醒",
+    "newChatStatus": "免费 · 余额 {balance}",
+    "topUpShort": "充值",
+    "dismiss": "关闭充值提醒",
     "paidModelTitle": "此模型需要付费额度",
-    "paidModelDescription": "{model} 为付费模型。当前余额为 0 且未订阅付费套餐，请先充值或选择订阅方案。",
+    "paidModelDescription": "{model} 为付费模型，当前余额为 0。充值后即可继续使用。",
     "topUp": "立即充值",
-    "viewPlans": "查看订阅",
     "keepFree": "继续使用免费模型"
   },
   "processTrace": {

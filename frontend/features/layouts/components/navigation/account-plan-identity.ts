@@ -1,4 +1,4 @@
-export type AccountPlanIdentity = "Free" | "Paid" | "Pro" | "Max";
+export type AccountPlanIdentity = "Free" | "Paid";
 
 export function resolveAccountPlanIdentity({
   subscriptionTier,
@@ -11,12 +11,15 @@ export function resolveAccountPlanIdentity({
 }): AccountPlanIdentity {
   const tier = subscriptionTier?.trim().toLowerCase() ?? "";
   const planName = subscriptionPlanName?.trim().toLowerCase() ?? "";
-  const paidPlan = `${tier} ${planName}`;
 
-  const hasPaidSubscription = (tier !== "" && tier !== "free") || planName === "pro" || planName === "max";
+  // HOHAI only exposes two customer identities: Free (no paid plan, no balance) and Paid
+  // (either an active paid plan or a positive usage balance). Plan names are intentionally
+  // not surfaced here so the sidebar stays stable when subscription plans are retired.
+  const hasPaidSubscription =
+    (tier !== "" && tier !== "free") || (planName !== "" && planName !== "free");
 
   if (hasPaidSubscription) {
-    return paidPlan.includes("max") ? "Max" : "Pro";
+    return "Paid";
   }
   if ((billingBalanceNanousd ?? 0) > 0) {
     return "Paid";

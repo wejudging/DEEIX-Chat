@@ -3,7 +3,7 @@
   "general": "General",
   "account": "Account",
   "chat": "Chat",
-  "subscription": "Subscription",
+  "subscription": "Top up",
   "about": "About",
   "navigation": "Settings navigation",
   "aboutPage": {
@@ -460,46 +460,11 @@
     }
   },
   "subscriptionPage": {
-    "title": "Subscription",
+    "title": "Pay as you go",
     "actions": {
       "cancel": "Cancel",
       "close": "Close",
       "processing": "Processing"
-    },
-    "interval": {
-      "lifetime": "lifetime",
-      "year": "year",
-      "month": "month"
-    },
-    "currentSubscription": {
-      "title": "Subscription plan",
-      "none": "No subscription",
-      "nonePaid": "No paid subscription",
-      "empty": "No subscription plan is available.",
-      "subscribe": "Subscribe",
-      "viewPlans": "View plans",
-      "manage": "Manage subscription",
-      "paygDescription": "You are currently billed by usage. Subscribe to receive included monthly credit."
-    },
-    "periodUsage": {
-      "title": "Plan usage",
-      "paygTitle": "Usage this month",
-      "paygSource": "Deducted from usage balance",
-      "currentPeriod": "Current billing period",
-      "used": "Used {value}",
-      "total": "Total {value}"
-    },
-    "periodOverage": {
-      "title": "Overage billing",
-      "balance": "Available balance {value}"
-    },
-    "entitlements": {
-      "title": "Subscription entitlements",
-      "count": "{count} segments",
-      "current": "Current",
-      "upcoming": "Upcoming",
-      "range": "{start} - {end}",
-      "credit": "{credit} credit"
     },
     "usageBilling": {
       "title": "Pay as you go",
@@ -508,10 +473,6 @@
       "balanceLabel": "Account balance",
       "totalSpentLabel": "Total spent",
       "topUp": "Top up"
-    },
-    "deduction": {
-      "payg": "Without a subscription, charges are deducted directly from your usage balance.",
-      "subscription": "Included plan credit is used first; additional usage is then deducted from your balance."
     },
     "selfMode": {
       "title": "Billing mode",
@@ -617,34 +578,8 @@
         "amount": "Amount"
       }
     },
-    "plans": {
-      "title": "Subscription plans",
-      "actions": {
-        "current": "Current plan",
-        "unavailable": "Unavailable",
-        "renew": "Renew",
-        "subscribe": "Subscribe",
-        "switch": "Switch",
-        "upgrade": "Upgrade",
-        "freeBlocked": "Base plan"
-      },
-      "features": {
-        "monthlyCredit": "{credit} monthly credit",
-        "freeModelsNotIncluded": "Free models do not count toward the credit."
-      }
-    },
     "payment": {
-      "title": "Payment method",
-      "renewTitle": "Renew subscription",
-      "upgradeTitle": "Upgrade subscription",
-      "description": "Confirm the payment method to continue.",
-      "renewDescription": "Renewal adds time to your current plan.",
-      "renewAfterHigherDescription": "This renews with the selected plan. Your current higher-tier entitlement and credit stay unchanged, and the new plan starts after the higher-tier entitlement ends.",
-      "upgradeDescription": "The higher plan starts immediately and unused entitlement is preserved after it.",
       "method": "Payment method",
-      "card": "Card",
-      "disabled": "Disabled",
-      "continue": "Continue",
       "epay": {
         "alipay": "Alipay",
         "wxpay": "WeChat Pay",
@@ -660,34 +595,16 @@
       "amountAria": "Top-up amount",
       "confirm": "Top up"
     },
-    "redemption": {
-      "open": "Redeem",
-      "title": "Redemption code",
-      "description": "Enter the redemption code provided by an administrator.",
-      "code": "Redemption code",
-      "confirm": "Redeem"
-    },
     "toasts": {
       "retryLater": "Please try again later.",
-      "subscriptionLoadFailed": "Failed to load subscription information",
+      "billingLoadFailed": "Failed to load billing information",
       "usageLogLoadFailed": "Failed to load usage logs",
       "checkoutCreateFailed": "Failed to create payment",
       "checkoutURLMissing": "The payment provider did not return a checkout URL.",
-      "planUpdated": "Subscription plan updated",
-      "subscribeFailed": "Subscription failed",
       "invalidTopUpAmount": "Invalid top-up amount",
-      "invalidTopUpAmountDescription": "Enter a USD amount greater than 0.",
-      "planUnavailable": "Plan unavailable",
-      "planUnavailableDescription": "This plan has no available price. Ask an administrator to check the billing configuration.",
+      "invalidTopUpAmountDescription": "Enter a top-up amount greater than 0.",
       "paymentDisabled": "Payment provider is disabled",
-      "paymentDisabledDescription": "Configure a payment provider in the admin console before subscribing to a paid plan.",
-      "freeSwitchBlocked": "Active subscription entitlement",
-      "freeSwitchBlockedDescription": "You cannot switch to Free before paid entitlements expire. Renew or choose another paid plan instead.",
-      "noPlanSelected": "No plan selected",
-      "noPlanSelectedDescription": "Select a plan before subscribing.",
-      "invalidRedemptionCode": "Enter a redemption code.",
-      "redemptionSucceeded": "Redemption applied",
-      "redemptionFailed": "Redemption failed"
+      "paymentDisabledDescription": "Configure a payment provider in the admin console before topping up."
     }
   }
 }

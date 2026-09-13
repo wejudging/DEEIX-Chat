@@ -17,11 +17,11 @@ import { Button } from "@/components/ui/button";
 export function NewChatBillingNotice({
   balanceLabel,
   onDismiss,
-  onUpgrade,
+  onTopUp,
 }: {
   balanceLabel: string;
   onDismiss: () => void;
-  onUpgrade: () => void;
+  onTopUp: () => void;
 }) {
   const t = useTranslations("chat.billingGuide");
 
@@ -34,9 +34,9 @@ export function NewChatBillingNotice({
         size="xs"
         variant="ghost"
         className="h-6 shrink-0 px-2 text-primary hover:text-primary"
-        onClick={onUpgrade}
+        onClick={onTopUp}
       >
-        {t("upgrade")}
+        {t("topUpShort")}
       </Button>
       <Button
         type="button"
@@ -58,13 +58,11 @@ export function PaidModelBillingDialog({
   modelName,
   onOpenChange,
   onTopUp,
-  onViewPlans,
 }: {
   open: boolean;
   modelName: string;
   onOpenChange: (open: boolean) => void;
   onTopUp: () => void;
-  onViewPlans: () => void;
 }) {
   const t = useTranslations("chat.billingGuide");
 
@@ -80,14 +78,10 @@ export function PaidModelBillingDialog({
             {t("paidModelDescription", { model: modelName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" size="sm" onClick={onTopUp}>
+        <div>
+          <Button type="button" size="sm" className="w-full" onClick={onTopUp}>
             <Banknote className="size-3.5" />
             {t("topUp")}
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onViewPlans}>
-            <CreditCard className="size-3.5" />
-            {t("viewPlans")}
           </Button>
         </div>
         <AlertDialogFooter className="justify-stretch">
