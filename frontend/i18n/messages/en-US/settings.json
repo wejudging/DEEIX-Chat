@@ -467,7 +467,6 @@
       "processing": "Processing"
     },
     "usageBilling": {
-      "title": "Pay as you go",
       "balance": "Balance {value}",
       "description": "No monthly fee, pay only for what you use",
       "balanceLabel": "Account balance",

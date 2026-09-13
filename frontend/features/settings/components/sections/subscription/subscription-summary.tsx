@@ -18,7 +18,7 @@ function ActionRow({
   description,
   action,
 }: {
-  title: string;
+  title?: string;
   value?: string;
   description?: string;
   action: React.ReactNode;
@@ -26,7 +26,7 @@ function ActionRow({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0 space-y-1">
-        <p className="text-xs font-medium">{title}</p>
+        {title ? <p className="text-xs font-medium">{title}</p> : null}
         {value ? <p className="break-words text-sm font-medium text-foreground/85">{value}</p> : null}
         {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
       </div>
@@ -85,8 +85,9 @@ export function SubscriptionSummary({
   // subscription now render the same pay-as-you-go balance row with a top-up action.
   return (
     <section className="space-y-6 px-0.5 md:space-y-7 xl:space-y-8 xl:px-1">
+      {/* HOHAI: the page header already renders “按量计费”, so the card starts at the balance
+          line — do not reintroduce a second usage-billing title here. */}
       <ActionRow
-        title={t("usageBilling.title")}
         value={t("usageBilling.balance", { value: formatAccountBalance(billingAccount?.balanceUSD ?? 0, billingDisplay) })}
         description={t("usageBilling.description")}
         action={

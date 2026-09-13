@@ -29,6 +29,10 @@ redemption and payment configuration management stay untouched.
 - The page keeps the usage summary (a single top-up row), the activity heatmap, the usage trend and
   the usage log. Plan cards, interval/current-plan/entitlement blocks, the plan and payment dialogs
   and the redemption-code dialog are removed from the customer UI.
+- The usage summary card starts at the balance line (余额 {value} / Balance {value}) followed by the
+  grey 无固定月费，用多少付多少 description — the 按量计费 / Pay as you go heading is rendered once,
+  by the page header (`subscriptionPage.title`). Do not reintroduce a second title inside the card,
+  and keep `subscriptionPage.usageBilling.title` out of the message catalog.
 - `?action=topup` opens the top-up dialog. The legacy `?action=plans` link opens the same dialog so
   old bookmarks and previously pushed routes keep working; both remove the query parameter after load.
 - The top-up dialog lays payment channels out as full-width, centred rows. With a single channel
@@ -56,6 +60,7 @@ When syncing `upstream/dev`, preserve the files and logic listed above, especial
 
 For billing, re-apply the pay-as-you-go-only customer UI: the 按量计费 page title with a 充值 sidebar
 entry, the removed plan/payment/redemption dialogs, the two-value `Free`/`Paid` identity with
-language-aware labels, the `Banknote`-based top-up entries, and the localised Alipay mark asset.
+language-aware labels, the `Banknote`-based top-up entries, the localised Alipay mark asset, and the
+single 按量计费 heading that exists only in the page header (not duplicated inside the summary card).
 Upstream may re-introduce `settings.subscriptionPage.plans`, `payment` dialog copy or a
 `credit-card` upgrade entry; those must not come back on the customer surface.
