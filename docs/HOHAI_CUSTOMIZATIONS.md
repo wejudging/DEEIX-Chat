@@ -3,7 +3,10 @@
 This file records HOHAI-specific behavior that must be preserved when merging updates from `upstream/dev`.
 
 Current customization branch: `hohai/custom-branding-billing-v7`.
-The behavior below was revalidated against upstream commit `bb4e8fe0` on 2026-09-13.
+The behavior below was revalidated against upstream commit `bb4e8fe0` on 2026-09-13, and again
+against upstream commit `135007e7` (the `upstream/dev` tip merged into `769055ce`) on 2026-09-15.
+The 2026-09-15 sync also adopted the upstream message-delete feature (PR #704) and the nested
+code-block rendering fix (PR #735) without touching any HOHAI customization.
 
 ## Composer tools
 
