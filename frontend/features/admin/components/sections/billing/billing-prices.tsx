@@ -440,6 +440,7 @@ export function BillingPricesSection({ models, pricingItems, setPricingItems, lo
         invalidNumber: (model, field) => t("importErrors.invalidNumber", { model, field }),
         invalidTieredPricing: (model, field) => t("importErrors.invalidTieredPricing", { model, field }),
         invalidTieredPricingJSON: (model) => t("importErrors.invalidTieredPricingJSON", { model }),
+        invalidTimePricing: (model, field) => t("importErrors.invalidTimePricing", { model, field }),
       });
       if (parsed.unknownModelNames.length > 0) {
         toast.error(t("toast.importUnknownModels"), {
