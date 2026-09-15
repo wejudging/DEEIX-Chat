@@ -266,6 +266,7 @@ type ModelPricingInput struct {
 	CallNanousdPerCall          int64
 	DurationNanousdPerSecond    int64
 	TieredPricingJSON           string
+	TimePricingJSON             string
 }
 
 // UsageListFilter 描述用户用量账本的筛选和排序条件。
@@ -1343,6 +1344,8 @@ type UsageEstimateInput struct {
 	OutputTokens       int64
 	CallCount          int64
 	DurationSeconds    int64
+	// BillingAt 是估算所参照的计费时刻（峰谷时段按它选档）；零值表示使用当前时间。
+	BillingAt time.Time
 }
 
 // usageEstimateTokenRates 是一次估算使用的基础单价（纳美元/百万 token），倍率在计算时统一套用。
@@ -1398,6 +1401,12 @@ func (s *Service) EstimateUsageNanousd(ctx context.Context, userID uint, input U
 		return 0, err
 	}
 	rateMultiplier = composeGroupRatePercent(rateMultiplier, groupRatePercent)
+	timePricingConfig, err := parseTimePricingConfig(pricing.TimePricingJSON)
+	if err != nil {
+		return 0, err
+	}
+	timePricingMultiplier, _ := resolveTimePricingMultiplier(timePricingConfig, timePricingReferenceTime(input.BillingAt))
+	rateMultiplier = composeTimeRateMultiplier(rateMultiplier, timePricingMultiplier)
 
 	switch domainbilling.NormalizePricingMode(pricing.PricingMode) {
 	case domainbilling.PricingModeCall:
@@ -1835,6 +1844,7 @@ func (s *Service) BuildUsageLedger(ctx context.Context, input UsagePricingInput)
 	var cacheWrite5mNanousdPerMTokens int64
 	var cacheWrite1hNanousdPerMTokens int64
 	var tieredPricingJSON string
+	var timePricingJSON = "{}"
 	var cacheWritePriceBasis string
 	var tieredTiers []tieredPricingTier
 	pricingMode := domainbilling.PricingModeToken
@@ -1844,6 +1854,19 @@ func (s *Service) BuildUsageLedger(ctx context.Context, input UsagePricingInput)
 		cacheWritePriceBasis = pricing.CacheWritePriceBasis
 		pricingMode = domainbilling.NormalizePricingMode(pricing.PricingMode)
 		tieredPricingJSON = strings.TrimSpace(pricing.TieredPricingJSON)
+		if rawTimePricing := strings.TrimSpace(pricing.TimePricingJSON); rawTimePricing != "" {
+			timePricingJSON = rawTimePricing
+		}
+	}
+	timePricingMultiplier := billingRateMultiplier{Numerator: 1, Denominator: 1}
+	timePricingLabel := ""
+	if mode != "self" && pricing != nil && !pricing.IsFree {
+		timePricingConfig, configErr := parseTimePricingConfig(timePricingJSON)
+		if configErr != nil {
+			return nil, configErr
+		}
+		timePricingMultiplier, timePricingLabel = resolveTimePricingMultiplier(timePricingConfig, timePricingReferenceTime(input.BillingAt))
+		rateMultiplier = composeTimeRateMultiplier(rateMultiplier, timePricingMultiplier)
 	}
 	if !input.ServiceOnly && mode != "self" && pricing != nil && !pricing.IsFree {
 		switch pricingMode {
@@ -2053,6 +2076,9 @@ func (s *Service) BuildUsageLedger(ctx context.Context, input UsagePricingInput)
 		"tiered_pricing_json":                      tieredPricingJSON,
 		"tiered_from_tokens":                       tieredFromTokens,
 		"tiered_up_to_tokens":                      tieredUpToTokens,
+		"time_pricing_json":                        timePricingJSON,
+		"time_pricing_multiplier":                  billingRateMultiplierValue(timePricingMultiplier),
+		"time_pricing_label":                       timePricingLabel,
 		"input_billed_nanousd":                     inputBilledNanousd,
 		"cache_read_billed_nanousd":                cacheReadBilledNanousd,
 		"cache_write_billed_nanousd":               cacheWriteBilledNanousd,
@@ -2329,6 +2355,10 @@ func (s *Service) UpsertModelPricing(ctx context.Context, input ModelPricingInpu
 		cacheWriteNanousdPerMTokens = clampNonNegative(input.CacheWriteNanousdPerMTokens)
 		outputNanousdPerMTokens = clampNonNegative(input.OutputNanousdPerMTokens)
 	}
+	timePricingJSON, err := normalizeTimePricingJSON(input.TimePricingJSON)
+	if err != nil {
+		return nil, ErrInvalidModelPricing
+	}
 	item, err := s.repo.UpsertModelPricing(ctx, &domainbilling.ModelPricing{
 		PlatformModelName:           platformModelName,
 		Currency:                    "USD",
@@ -2342,6 +2372,7 @@ func (s *Service) UpsertModelPricing(ctx context.Context, input ModelPricingInpu
 		CallNanousdPerCall:          callNanousdPerCall,
 		DurationNanousdPerSecond:    durationNanousdPerSecond,
 		TieredPricingJSON:           tieredPricingJSON,
+		TimePricingJSON:             timePricingJSON,
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrInvalidInput) || errors.Is(err, repository.ErrModelNotFound) {
@@ -3339,6 +3370,386 @@ func usdToNanousd(value float64) int64 {
 		return 0
 	}
 	return int64(math.Round(value * 1000000000))
+}
+
+// defaultTimePricingTimezone 是时段倍率的默认时区，与上游 New API 的 Asia/Shanghai 口径一致。
+const defaultTimePricingTimezone = "Asia/Shanghai"
+
+const (
+	timePricingMaxPeriods      = 20
+	timePricingMaxWindows      = 12
+	timePricingMaxCampaigns    = 20
+	timePricingMultiplierScale = 1000000
+	// timePricingMaxMultiplier 限制单条倍率，避免配置错误把账单放大到不可控的量级。
+	timePricingMaxMultiplier = 1000
+)
+
+// builtinTimePricingLocations 是运行环境缺少 tzdata 时的兜底时区（中国全境不实行夏令时，固定偏移可精确还原）。
+var builtinTimePricingLocations = map[string]*time.Location{
+	"Asia/Shanghai":  time.FixedZone("CST", 8*60*60),
+	"Asia/Chongqing": time.FixedZone("CST", 8*60*60),
+	"Asia/Harbin":    time.FixedZone("CST", 8*60*60),
+	"Asia/Urumqi":    time.FixedZone("XJT", 6*60*60),
+	"PRC":            time.FixedZone("CST", 8*60*60),
+	"UTC":            time.UTC,
+}
+
+// timePricingConfig 描述模型按时间加价或折扣的配置（峰谷计费与限时活动）。
+// 语义与上游 New API 的 billing_expr 对齐：先按 periods 命中一个时段倍率，再依次乘以所有
+// 命中的活动倍率，最终倍率作用于本次调用的全部计费项（输入、输出、缓存读写、按次与按秒）。
+type timePricingConfig struct {
+	// Timezone 是判定时段所用的时区，留空按 Asia/Shanghai 处理。
+	Timezone string `json:"timezone,omitempty"`
+	// Periods 按先后顺序匹配，命中第一个即停止；未命中任何时段时倍率为 1。
+	Periods []timePricingPeriod `json:"periods,omitempty"`
+	// Campaigns 是限时活动，所有命中项依次相乘。
+	Campaigns []timePricingCampaign `json:"campaigns,omitempty"`
+}
+
+// timePricingPeriod 描述一个时段：weekdays 与 windows 都留空表示兜底时段。
+// Weekdays 采用 Go 的 time.Weekday 取值（0=周日 … 6=周六），与上游 weekday() 一致。
+type timePricingPeriod struct {
+	Label      string     `json:"label,omitempty"`
+	Multiplier float64    `json:"multiplier"`
+	Weekdays   []int      `json:"weekdays,omitempty"`
+	Windows    [][]string `json:"windows,omitempty"`
+}
+
+// timePricingCampaign 描述一次限时活动，按本地月份与日期区间判定；倍率通常小于 1。
+// Month/FromDay/BeforeDay 用于每年重复的档期，StartDate/EndDate 用于一次性档期（含自动到期）。
+type timePricingCampaign struct {
+	Label      string  `json:"label,omitempty"`
+	Multiplier float64 `json:"multiplier"`
+	// Month 为 0 时表示不限制月份。
+	Month int `json:"month,omitempty"`
+	// FromDay 为 0 时表示从当月 1 日开始。
+	FromDay int `json:"fromDay,omitempty"`
+	// BeforeDay 为 0 时表示持续到当月最后一天。
+	BeforeDay int `json:"beforeDay,omitempty"`
+	// StartDate 是活动生效日期（YYYY-MM-DD，按 Timezone 解释），留空表示不限制起始日期。
+	StartDate string `json:"startDate,omitempty"`
+	// EndDate 是活动结束日期（YYYY-MM-DD，含当天），留空表示不限制结束日期。
+	EndDate string `json:"endDate,omitempty"`
+}
+
+// normalizeTimePricingJSON 校验并规范化时段计费配置，空配置统一落库为 "{}"。
+func normalizeTimePricingJSON(raw string) (string, error) {
+	config, err := parseTimePricingConfig(raw)
+	if err != nil {
+		return "", err
+	}
+	if len(config.Periods) == 0 && len(config.Campaigns) == 0 {
+		return "{}", nil
+	}
+	payload, err := json.Marshal(config)
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
+}
+
+// parseTimePricingConfig 解析时段计费配置。配置只影响计费倍率，出错时调用方必须拒绝整次结算，
+// 否则会按错误价格出账。
+func parseTimePricingConfig(raw string) (timePricingConfig, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "{}" {
+		return timePricingConfig{}, nil
+	}
+	var config timePricingConfig
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&config); err != nil {
+		return timePricingConfig{}, repository.ErrInvalidInput
+	}
+	if len(config.Periods) > timePricingMaxPeriods || len(config.Campaigns) > timePricingMaxCampaigns {
+		return timePricingConfig{}, repository.ErrInvalidInput
+	}
+	config.Timezone = strings.TrimSpace(config.Timezone)
+	if config.Timezone == "" {
+		config.Timezone = defaultTimePricingTimezone
+	}
+	if _, err := timePricingLocation(config.Timezone); err != nil {
+		return timePricingConfig{}, repository.ErrInvalidInput
+	}
+	for index := range config.Periods {
+		period := &config.Periods[index]
+		period.Label = strings.TrimSpace(period.Label)
+		if !isValidTimePricingMultiplier(period.Multiplier) {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		if len(period.Weekdays) > 7 || len(period.Windows) > timePricingMaxWindows {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		for _, weekday := range period.Weekdays {
+			if weekday < 0 || weekday > 6 {
+				return timePricingConfig{}, repository.ErrInvalidInput
+			}
+		}
+		for _, window := range period.Windows {
+			if len(window) != 2 {
+				return timePricingConfig{}, repository.ErrInvalidInput
+			}
+			start, startOK := parseTimePricingClock(window[0])
+			end, endOK := parseTimePricingClock(window[1])
+			if !startOK || !endOK || end <= start {
+				return timePricingConfig{}, repository.ErrInvalidInput
+			}
+		}
+	}
+	for index := range config.Campaigns {
+		campaign := &config.Campaigns[index]
+		campaign.Label = strings.TrimSpace(campaign.Label)
+		if !isValidTimePricingMultiplier(campaign.Multiplier) {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		if campaign.Month < 0 || campaign.Month > 12 {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		if campaign.FromDay < 0 || campaign.FromDay > 31 || campaign.BeforeDay < 0 || campaign.BeforeDay > 31 {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		if campaign.FromDay > 0 && campaign.BeforeDay > 0 && campaign.FromDay >= campaign.BeforeDay {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		startDate, startOK := parseTimePricingCampaignDate(campaign.StartDate)
+		if !startOK {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		endDate, endOK := parseTimePricingCampaignDate(campaign.EndDate)
+		if !endOK {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		if !startDate.IsZero() && !endDate.IsZero() && !startDate.Before(endDate) {
+			return timePricingConfig{}, repository.ErrInvalidInput
+		}
+		campaign.StartDate = formatTimePricingCampaignDate(startDate)
+		campaign.EndDate = formatTimePricingCampaignDate(endDate)
+	}
+	return config, nil
+}
+
+// resolveTimePricingMultiplier 计算某个时刻应使用的总倍率，并返回命中的时段与活动标签（用于账单快照）。
+func resolveTimePricingMultiplier(config timePricingConfig, at time.Time) (billingRateMultiplier, string) {
+	identity := billingRateMultiplier{Numerator: 1, Denominator: 1}
+	if len(config.Periods) == 0 && len(config.Campaigns) == 0 {
+		return identity, ""
+	}
+	location, err := timePricingLocation(config.Timezone)
+	if err != nil {
+		return identity, ""
+	}
+	local := at.In(location)
+	multiplier := identity
+	labels := make([]string, 0, 2)
+	for _, period := range config.Periods {
+		if !period.matches(local) {
+			continue
+		}
+		multiplier = composeTimeRateMultiplier(multiplier, billingRateMultiplierFromFloat(period.Multiplier))
+		if period.Label != "" {
+			labels = append(labels, period.Label)
+		}
+		break
+	}
+	for _, campaign := range config.Campaigns {
+		if !campaign.matches(local) {
+			continue
+		}
+		multiplier = composeTimeRateMultiplier(multiplier, billingRateMultiplierFromFloat(campaign.Multiplier))
+		if campaign.Label != "" {
+			labels = append(labels, campaign.Label)
+		}
+	}
+	return multiplier, strings.Join(labels, " · ")
+}
+
+// timePricingReferenceTime 把零值计费时刻归一为当前时间，保证估算与账本口径一致。
+func timePricingReferenceTime(at time.Time) time.Time {
+	if at.IsZero() {
+		return time.Now()
+	}
+	return at
+}
+
+func (period timePricingPeriod) matches(local time.Time) bool {
+	if len(period.Weekdays) > 0 {
+		weekday := int(local.Weekday())
+		matched := false
+		for _, candidate := range period.Weekdays {
+			if candidate == weekday {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if len(period.Windows) == 0 {
+		return true
+	}
+	minute := local.Hour()*60 + local.Minute()
+	for _, window := range period.Windows {
+		start, startOK := parseTimePricingClock(window[0])
+		end, endOK := parseTimePricingClock(window[1])
+		if !startOK || !endOK {
+			continue
+		}
+		if minute >= start && minute < end {
+			return true
+		}
+	}
+	return false
+}
+
+func (campaign timePricingCampaign) matches(local time.Time) bool {
+	if !campaign.matchesDateWindow(local) {
+		return false
+	}
+	if campaign.Month > 0 && int(local.Month()) != campaign.Month {
+		return false
+	}
+	day := local.Day()
+	if campaign.FromDay > 0 && day < campaign.FromDay {
+		return false
+	}
+	if campaign.BeforeDay > 0 && day >= campaign.BeforeDay {
+		return false
+	}
+	return true
+}
+
+// matchesDateWindow 判定一次性档期的绝对日期区间；未配置的边界视为不限制。
+// 只比较本地日历日期（不比较时刻），因此 EndDate 含当天，与 "9 月 20 日结束" 的自然语义一致。
+func (campaign timePricingCampaign) matchesDateWindow(local time.Time) bool {
+	localDate := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+	if campaign.StartDate != "" {
+		start, ok := parseTimePricingCampaignDate(campaign.StartDate)
+		if !ok || localDate.Before(start) {
+			return false
+		}
+	}
+	if campaign.EndDate != "" {
+		end, ok := parseTimePricingCampaignDate(campaign.EndDate)
+		if !ok || localDate.After(end) {
+			return false
+		}
+	}
+	return true
+}
+
+// parseTimePricingCampaignDate 解析 YYYY-MM-DD 为 UTC 零点的纯日期。空字符串表示未设置，返回零值且视为合法。
+func parseTimePricingCampaignDate(value string) (time.Time, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, true
+	}
+	parsed, err := time.ParseInLocation("2006-01-02", value, time.UTC)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func formatTimePricingCampaignDate(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format("2006-01-02")
+}
+
+// parseTimePricingClock 解析 "HH:MM"，返回当天分钟数。
+func parseTimePricingClock(value string) (int, bool) {
+	value = strings.TrimSpace(value)
+	parts := strings.Split(value, ":")
+	if len(parts) != 2 {
+		return 0, false
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 24 {
+		return 0, false
+	}
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil || minute < 0 || minute > 59 {
+		return 0, false
+	}
+	if hour == 24 && minute != 0 {
+		return 0, false
+	}
+	return hour*60 + minute, true
+}
+
+func timePricingLocation(name string) (*time.Location, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = defaultTimePricingTimezone
+	}
+	location, err := time.LoadLocation(name)
+	if err == nil && location != nil {
+		return location, nil
+	}
+	if fallback, ok := builtinTimePricingLocations[name]; ok {
+		return fallback, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, repository.ErrInvalidInput
+}
+
+func isValidTimePricingMultiplier(value float64) bool {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return false
+	}
+	return value > 0 && value <= timePricingMaxMultiplier
+}
+
+// billingRateMultiplierFromFloat 把十进制倍率转成精确有理数（最多 6 位小数）后约分。
+func billingRateMultiplierFromFloat(value float64) billingRateMultiplier {
+	identity := billingRateMultiplier{Numerator: 1, Denominator: 1}
+	if !isValidTimePricingMultiplier(value) {
+		return identity
+	}
+	scaled := int64(math.Round(value * timePricingMultiplierScale))
+	if scaled <= 0 {
+		return identity
+	}
+	return reduceBillingRateMultiplier(billingRateMultiplier{Numerator: scaled, Denominator: timePricingMultiplierScale})
+}
+
+// composeTimeRateMultiplier 叠加时段/活动倍率，并在叠加后约分以避免整数溢出。
+func composeTimeRateMultiplier(base billingRateMultiplier, timeMultiplier billingRateMultiplier) billingRateMultiplier {
+	base = normalizeBillingRateMultiplier(base)
+	timeMultiplier = normalizeBillingRateMultiplier(timeMultiplier)
+	if timeMultiplier.Numerator == timeMultiplier.Denominator {
+		return reduceBillingRateMultiplier(base)
+	}
+	return reduceBillingRateMultiplier(billingRateMultiplier{
+		Numerator:   base.Numerator * timeMultiplier.Numerator,
+		Denominator: base.Denominator * timeMultiplier.Denominator,
+	})
+}
+
+func reduceBillingRateMultiplier(multiplier billingRateMultiplier) billingRateMultiplier {
+	multiplier = normalizeBillingRateMultiplier(multiplier)
+	divisor := gcdInt64(multiplier.Numerator, multiplier.Denominator)
+	if divisor <= 1 {
+		return multiplier
+	}
+	return billingRateMultiplier{
+		Numerator:   multiplier.Numerator / divisor,
+		Denominator: multiplier.Denominator / divisor,
+	}
+}
+
+func gcdInt64(a int64, b int64) int64 {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	return a
 }
 
 // resolvePlatformModelIdentity 解析平台模型的稳定身份。

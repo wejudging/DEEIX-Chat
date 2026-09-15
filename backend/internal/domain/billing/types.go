@@ -316,8 +316,10 @@ type ModelPricing struct {
 	CallNanousdPerCall          int64
 	DurationNanousdPerSecond    int64
 	TieredPricingJSON           string
-	CreatedAt                   time.Time
-	UpdatedAt                   time.Time
+	// TimePricingJSON 记录时段与活动倍率配置（峰谷计费），与上游 New API 的 billing_expr 语义对齐。
+	TimePricingJSON string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // UsageLedger 表示用量账本。

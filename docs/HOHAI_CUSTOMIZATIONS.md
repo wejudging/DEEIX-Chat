@@ -78,6 +78,39 @@ per-user override while the global mode stays `usage`:
   `billingGuide.paidModelDescription` no longer mention subscribing, the paid-model dialog shows a
   single full-width 立即充值 action, and the new-chat reminder reads 免费 · 余额 {balance}.
 
+## Time-of-day and campaign pricing
+
+HOHAI mirrors the upstream New API rating rules on the DEEIX side: GPT models use context-length
+tiers and DeepSeek models use peak / off-peak periods plus a limited-time campaign. This is a
+backend capability the upstream repository does not have, so it has to be re-applied on every sync.
+
+- `billing_model_prices` gained a `time_pricing_json` text column (default `'{}'`), declared in
+  `backend/internal/infra/persistence/models/billing.go` and created by
+  `applyBillingBaselineIndexes` in `backend/internal/infra/persistence/postgres/postgres.go`.
+  Keep both: the Postgres bootstrap is what adds the column on an existing database.
+- `ModelPricing.TimePricingJSON` is threaded through the domain type, the Postgres repository
+  (upsert map plus `toDomain`) and the HTTP billing DTOs. Re-apply all four if upstream rewrites
+  the pricing upsert path.
+- The rating logic lives at the end of `backend/internal/application/billing/service.go`
+  (`timePricingConfig`, `parseTimePricingConfig`, `normalizeTimePricingJSON`,
+  `resolveTimePricingMultiplier`). Semantics match New API's `billing_expr`: the first matching
+  period wins, every matching campaign then stacks multiplicatively, and the resulting multiplier
+  applies to all chargeable items. Defaults to `Asia/Shanghai` with a fixed-offset fallback for
+  images without tzdata. Campaigns support either a recurring `month`/`fromDay`/`beforeDay` window
+  or an absolute, self-expiring `startDate`/`endDate` pair (inclusive on both ends).
+- `UsageEstimateInput.BillingAt` exists so estimates and the ledger snapshot resolve the same
+  instant. The ledger snapshot records `time_pricing_json`, `time_pricing_multiplier` and
+  `time_pricing_label`.
+- Context-length tiers already exist upstream as `PricingModeTiered`; the tier bucket is
+  `input + cacheRead + cacheWrite`, which matches New API's `len` operand. do not change that sum.
+- Admin UI: `frontend/features/admin/model/billing-settings.ts` owns the form types, parse /
+  stringify / validation helpers, and `frontend/features/admin/components/sections/billing/billing-dialogs.tsx`
+  renders the 时段/活动倍率 editor. The matching locale keys live in `adminBilling.modelPricing.timePricing*`.
+- Admin amounts must render in the site currency: `billing-settings.ts` holds a module-level
+  currency symbol set by `use-admin-billing-reference.ts` from `billingConfig`. Only the
+  OpenRouter *catalogue* column keeps `$`, because those reference prices really are USD.
+- Regression coverage: `backend/internal/application/billing/service_time_pricing_test.go`.
+
 ## Merge rule
 
 When syncing `upstream/dev`, preserve the files and logic listed above, especially the smart-search resolver, the user-settings initialization marker, the visual-prompt default, and the composer button visibility changes.

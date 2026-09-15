@@ -16,6 +16,8 @@ import { resolveAdminErrorMessage } from "@/features/admin/utils/admin-error";
 import {
   flattenPaymentSettings,
   PAYMENT_DEFAULTS,
+  resolveAdminBillingCurrencySymbol,
+  setAdminBillingCurrencySymbol,
   type PaymentSettings,
 } from "@/features/admin/model/billing-settings";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
@@ -78,6 +80,10 @@ export function useAdminBillingReference(): UseAdminBillingReferenceState {
       ]);
       const nextPaymentSettings = flattenPaymentSettings(billingSettings);
       const nextPaymentConfiguredMap = configuredSettingsMap({ billing: billingSettings });
+      setAdminBillingCurrencySymbol(resolveAdminBillingCurrencySymbol(
+        referenceData.billingConfig.config.displayCurrency,
+        referenceData.billingConfig.config.usdToCNYRate,
+      ));
       setPermissionGroups(groups);
       setBillingConfig(referenceData.billingConfig.config);
       setPlans(referenceData.billingPlans);

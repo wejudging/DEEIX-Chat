@@ -27,21 +27,42 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  ALL_TIME_PRICING_WEEKDAYS,
+  createTimePricingCampaignForm,
+  createTimePricingPeriodForm,
+  createTimePricingWindowForm,
+  DEFAULT_TIME_PRICING_TIMEZONE,
+  emptyTimePricingFormState,
+  isTimePricingFormValid,
   normalizePricingMode,
   parsePrice,
   parseTieredPricingJSON,
+  parseTimePricingJSON,
   stringifyTieredPricing,
+  stringifyTimePricing,
   type PlanFormState,
   type PricingMode,
   type PricingFormState,
+  type TimePricingCampaignForm,
+  type TimePricingFormState,
+  type TimePricingPeriodForm,
+  type TimePricingWindowForm,
   type TieredPricingTierForm,
 } from "@/features/admin/model/billing-settings";
 import type { PermissionGroup } from "@/features/admin/api/permission-groups";
 
 type PricingJSONValue = Record<string, unknown>;
 
+function timePricingFormToJSONValue(form: TimePricingFormState): unknown | null {
+  if (form.periods.length === 0 && form.campaigns.length === 0) {
+    return null;
+  }
+  return JSON.parse(stringifyTimePricing(form)) as unknown;
+}
+
 function pricingFormToJSON(form: PricingFormState): string {
   const pricingMode = normalizePricingMode(form.pricingMode);
+  const timePricing = timePricingFormToJSONValue(form.timePricing);
   const payload = {
     platformModelName: form.platformModelName,
     currency: "USD",
@@ -55,6 +76,7 @@ function pricingFormToJSON(form: PricingFormState): string {
     callUSDPerCall: pricingMode === "call" ? parsePrice(form.call) : 0,
     durationUSDPerSecond: pricingMode === "duration" ? parsePrice(form.duration) : 0,
     ...(pricingMode === "tiered" ? { tieredPricing: JSON.parse(stringifyTieredPricing(form.tieredTiers)) as unknown } : {}),
+    ...(timePricing ? { timePricing } : {}),
   };
   return JSON.stringify(payload, null, 2);
 }
@@ -76,7 +98,7 @@ function pricingFormFromJSON(
   current: PricingFormState,
   raw: string,
   durationPricingEnabled: boolean,
-  messages: { root: string; model: string; mode: string; durationVideoOnly: string; tiered: string },
+  messages: { root: string; model: string; mode: string; durationVideoOnly: string; tiered: string; timePricing: string },
 ): PricingFormState {
   const parsed = JSON.parse(raw) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -116,6 +138,18 @@ function pricingFormFromJSON(
       throw new Error(messages.tiered);
     }
     next.tieredTiers = tiers;
+  }
+  const rawTimePricing = payload.timePricing ?? payload.timePricingJSON;
+  if (rawTimePricing === undefined || rawTimePricing === null) {
+    next.timePricing = emptyTimePricingFormState();
+  } else if (typeof rawTimePricing === "string" || typeof rawTimePricing === "object") {
+    const timePricing = parseTimePricingJSON(rawTimePricing);
+    if (!isTimePricingFormValid(timePricing)) {
+      throw new Error(messages.timePricing);
+    }
+    next.timePricing = timePricing;
+  } else {
+    throw new Error(messages.timePricing);
   }
   return next;
 }
@@ -290,6 +324,7 @@ export function PricingBillingDialog({
         mode: t("modelPricing.jsonErrors.mode"),
         durationVideoOnly: t("modelPricing.jsonErrors.durationVideoOnly"),
         tiered: t("modelPricing.jsonErrors.tiered"),
+        timePricing: t("modelPricing.jsonErrors.timePricing"),
       });
       setJSONError("");
       setForm(nextForm);
@@ -312,6 +347,84 @@ export function PricingBillingDialog({
     setJSONDraft(nextJSON);
     setJSONError("");
   }, [durationPricingEnabled, form, setForm]);
+
+  const updateTimePricing = React.useCallback((updater: (current: TimePricingFormState) => TimePricingFormState) => {
+    setForm((current) => (current ? { ...current, timePricing: updater(current.timePricing) } : current));
+  }, [setForm]);
+
+  const addTimePricingPeriod = React.useCallback(() => {
+    updateTimePricing((current) => ({ ...current, periods: [...current.periods, createTimePricingPeriodForm()] }));
+  }, [updateTimePricing]);
+
+  const removeTimePricingPeriod = React.useCallback((index: number) => {
+    updateTimePricing((current) => ({ ...current, periods: current.periods.filter((_, periodIndex) => periodIndex !== index) }));
+  }, [updateTimePricing]);
+
+  const updateTimePricingPeriod = React.useCallback((index: number, patch: Partial<TimePricingPeriodForm>) => {
+    updateTimePricing((current) => ({
+      ...current,
+      periods: current.periods.map((period, periodIndex) => (periodIndex === index ? { ...period, ...patch } : period)),
+    }));
+  }, [updateTimePricing]);
+
+  const toggleTimePricingWeekday = React.useCallback((index: number, weekday: number) => {
+    updateTimePricing((current) => ({
+      ...current,
+      periods: current.periods.map((period, periodIndex) => {
+        if (periodIndex !== index) {
+          return period;
+        }
+        const weekdays = period.weekdays.includes(weekday)
+          ? period.weekdays.filter((item) => item !== weekday)
+          : [...period.weekdays, weekday].sort((left, right) => left - right);
+        return { ...period, weekdays };
+      }),
+    }));
+  }, [updateTimePricing]);
+
+  const updateTimePricingWindow = React.useCallback((periodIndex: number, windowIndex: number, patch: Partial<TimePricingWindowForm>) => {
+    updateTimePricing((current) => ({
+      ...current,
+      periods: current.periods.map((period, index) => (
+        index === periodIndex
+          ? { ...period, windows: period.windows.map((window, innerIndex) => (innerIndex === windowIndex ? { ...window, ...patch } : window)) }
+          : period
+      )),
+    }));
+  }, [updateTimePricing]);
+
+  const addTimePricingWindow = React.useCallback((periodIndex: number) => {
+    updateTimePricing((current) => ({
+      ...current,
+      periods: current.periods.map((period, index) => (
+        index === periodIndex ? { ...period, windows: [...period.windows, createTimePricingWindowForm()] } : period
+      )),
+    }));
+  }, [updateTimePricing]);
+
+  const removeTimePricingWindow = React.useCallback((periodIndex: number, windowIndex: number) => {
+    updateTimePricing((current) => ({
+      ...current,
+      periods: current.periods.map((period, index) => (
+        index === periodIndex ? { ...period, windows: period.windows.filter((_, innerIndex) => innerIndex !== windowIndex) } : period
+      )),
+    }));
+  }, [updateTimePricing]);
+
+  const addTimePricingCampaign = React.useCallback(() => {
+    updateTimePricing((current) => ({ ...current, campaigns: [...current.campaigns, createTimePricingCampaignForm()] }));
+  }, [updateTimePricing]);
+
+  const removeTimePricingCampaign = React.useCallback((index: number) => {
+    updateTimePricing((current) => ({ ...current, campaigns: current.campaigns.filter((_, campaignIndex) => campaignIndex !== index) }));
+  }, [updateTimePricing]);
+
+  const updateTimePricingCampaign = React.useCallback((index: number, patch: Partial<TimePricingCampaignForm>) => {
+    updateTimePricing((current) => ({
+      ...current,
+      campaigns: current.campaigns.map((campaign, campaignIndex) => (campaignIndex === index ? { ...campaign, ...patch } : campaign)),
+    }));
+  }, [updateTimePricing]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -506,6 +619,245 @@ export function PricingBillingDialog({
                     </div>
                     <p className="text-[11px] text-muted-foreground">{t("modelPricing.tierNote")}</p>
                   </div>
+                    ) : null}
+
+                    {!form.isFree ? (
+                      <div className="space-y-3 rounded-md border px-3 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-medium">{t("modelPricing.timePricingTitle")}</p>
+                            <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingHint")}</p>
+                          </div>
+                          <Button type="button" variant="ghost" size="xs" className="shrink-0" onClick={addTimePricingPeriod}>
+                            <Plus className="size-3.5" />
+                            {t("modelPricing.timePricingAddPeriod")}
+                          </Button>
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingTimezone")}</p>
+                          <Input
+                            value={form.timePricing.timezone}
+                            placeholder={DEFAULT_TIME_PRICING_TIMEZONE}
+                            className="h-8"
+                            onChange={(event) => updateTimePricing((current) => ({ ...current, timezone: event.target.value }))}
+                          />
+                        </div>
+
+                        {form.timePricing.periods.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingEmpty")}</p>
+                        ) : null}
+
+                        {form.timePricing.periods.map((period, periodIndex) => (
+                          <div key={period.id} className="space-y-2 rounded-md border px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium">{t("modelPricing.timePricingPeriodName", { index: periodIndex + 1 })}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground"
+                                onClick={() => removeTimePricingPeriod(periodIndex)}
+                                aria-label={t("modelPricing.timePricingDeletePeriod")}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingPeriodLabel")}</p>
+                                <Input
+                                  value={period.label}
+                                  placeholder={t("modelPricing.timePricingPeriodLabelPlaceholder")}
+                                  onChange={(event) => updateTimePricingPeriod(periodIndex, { label: event.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingMultiplier")}</p>
+                                <Input
+                                  value={period.multiplier}
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  onChange={(event) => updateTimePricingPeriod(periodIndex, { multiplier: event.target.value })}
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingWeekdays")}</p>
+                              <div className="flex flex-wrap gap-1">
+                                {ALL_TIME_PRICING_WEEKDAYS.map((weekday) => {
+                                  const selected = period.weekdays.includes(weekday);
+                                  return (
+                                    <Button
+                                      key={weekday}
+                                      type="button"
+                                      variant={selected ? "secondary" : "ghost"}
+                                      size="xs"
+                                      className={selected ? "min-w-8" : "min-w-8 text-muted-foreground"}
+                                      aria-pressed={selected}
+                                      onClick={() => toggleTimePricingWeekday(periodIndex, weekday)}
+                                    >
+                                      {t(`modelPricing.timePricingWeekday${weekday}` as "modelPricing.timePricingWeekday0")}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingWindows")}</p>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="xs"
+                                  disabled={period.windows.length >= 12}
+                                  onClick={() => addTimePricingWindow(periodIndex)}
+                                >
+                                  <Plus className="size-3.5" />
+                                  {t("modelPricing.timePricingAddWindow")}
+                                </Button>
+                              </div>
+                              {period.windows.map((window, windowIndex) => (
+                                <div key={window.id} className="flex items-center gap-2">
+                                  <Input
+                                    value={window.start}
+                                    type="time"
+                                    aria-label={t("modelPricing.timePricingWindowStart")}
+                                    onChange={(event) => updateTimePricingWindow(periodIndex, windowIndex, { start: event.target.value })}
+                                  />
+                                  <span className="text-xs text-muted-foreground">–</span>
+                                  <Input
+                                    value={window.end}
+                                    type="time"
+                                    aria-label={t("modelPricing.timePricingWindowEnd")}
+                                    onChange={(event) => updateTimePricingWindow(periodIndex, windowIndex, { end: event.target.value })}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="shrink-0 text-muted-foreground"
+                                    onClick={() => removeTimePricingWindow(periodIndex, windowIndex)}
+                                    aria-label={t("modelPricing.timePricingDeleteWindow")}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                              {period.windows.length === 0 ? (
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingWindowEmpty")}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+
+                        <div className="flex items-center justify-between gap-3 border-t pt-3">
+                          <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingCampaignHint")}</p>
+                          <Button type="button" variant="ghost" size="xs" className="shrink-0" onClick={addTimePricingCampaign}>
+                            <Plus className="size-3.5" />
+                            {t("modelPricing.timePricingAddCampaign")}
+                          </Button>
+                        </div>
+
+                        {form.timePricing.campaigns.map((campaign, campaignIndex) => (
+                          <div key={campaign.id} className="space-y-2 rounded-md border px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium">{t("modelPricing.timePricingCampaignName", { index: campaignIndex + 1 })}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground"
+                                onClick={() => removeTimePricingCampaign(campaignIndex)}
+                                aria-label={t("modelPricing.timePricingDeleteCampaign")}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingPeriodLabel")}</p>
+                                <Input
+                                  value={campaign.label}
+                                  placeholder={t("modelPricing.timePricingPeriodLabelPlaceholder")}
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { label: event.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingMultiplier")}</p>
+                                <Input
+                                  value={campaign.multiplier}
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { multiplier: event.target.value })}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingCampaignMonth")}</p>
+                                <Input
+                                  value={campaign.month}
+                                  type="number"
+                                  min="0"
+                                  max="12"
+                                  step="1"
+                                  placeholder="0"
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { month: event.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingCampaignFromDay")}</p>
+                                <Input
+                                  value={campaign.fromDay}
+                                  type="number"
+                                  min="0"
+                                  max="31"
+                                  step="1"
+                                  placeholder="1"
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { fromDay: event.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingCampaignBeforeDay")}</p>
+                                <Input
+                                  value={campaign.beforeDay}
+                                  type="number"
+                                  min="0"
+                                  max="31"
+                                  step="1"
+                                  placeholder="31"
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { beforeDay: event.target.value })}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingCampaignStartDate")}</p>
+                                <Input
+                                  value={campaign.startDate}
+                                  type="date"
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { startDate: event.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground">{t("modelPricing.timePricingCampaignEndDate")}</p>
+                                <Input
+                                  value={campaign.endDate}
+                                  type="date"
+                                  onChange={(event) => updateTimePricingCampaign(campaignIndex, { endDate: event.target.value })}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        <p className={isTimePricingFormValid(form.timePricing) ? "text-[11px] text-muted-foreground" : "text-[11px] text-destructive"}>
+                          {isTimePricingFormValid(form.timePricing) ? t("modelPricing.timePricingNote") : t("modelPricing.timePricingInvalid")}
+                        </p>
+                      </div>
                     ) : null}
                   </>
                 ) : (

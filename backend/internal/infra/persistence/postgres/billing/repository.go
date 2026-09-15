@@ -1434,6 +1434,7 @@ func (r *Repo) UpsertModelPricing(ctx context.Context, item *domainbilling.Model
 		"call_nanousd_per_call":            clampNonNegative(item.CallNanousdPerCall),
 		"duration_nanousd_per_second":      clampNonNegative(item.DurationNanousdPerSecond),
 		"tiered_pricing_json":              strings.TrimSpace(item.TieredPricingJSON),
+		"time_pricing_json":                strings.TrimSpace(item.TimePricingJSON),
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		record = model.ModelPricing{
@@ -2208,6 +2209,7 @@ func toDomainModelPricing(item model.ModelPricing) domainbilling.ModelPricing {
 		CallNanousdPerCall:          item.CallNanousdPerCall,
 		DurationNanousdPerSecond:    item.DurationNanousdPerSecond,
 		TieredPricingJSON:           item.TieredPricingJSON,
+		TimePricingJSON:             item.TimePricingJSON,
 		CreatedAt:                   item.CreatedAt,
 		UpdatedAt:                   item.UpdatedAt,
 	}

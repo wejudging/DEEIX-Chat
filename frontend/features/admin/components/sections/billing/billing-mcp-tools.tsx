@@ -14,6 +14,7 @@ import { TablePagination, TableToolbar } from "@/components/ui/table-tools";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useVirtualTableRows, VirtualTablePaddingRow } from "@/components/ui/virtual-table";
 import { listAdminMCPServers, listAdminMCPServerTools, updateAdminMCPTool } from "@/features/admin/api";
+import { getAdminBillingCurrencySymbol } from "@/features/admin/model/billing-settings";
 import { resolveAdminErrorMessage } from "@/features/admin/utils/admin-error";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
 import { SettingsSection } from "@/shared/components/settings-layout";
@@ -406,7 +407,7 @@ export function BillingMCPToolsSection() {
                     </TableCell>
                     <TableCell className="py-1.5 text-right font-mono text-xs text-muted-foreground">
                       <div className="flex items-center justify-end gap-1.5">
-                        <span className="text-muted-foreground">$</span>
+                        <span className="text-muted-foreground">{getAdminBillingCurrencySymbol()}</span>
                         <Input
                           value={priceDrafts[row.toolID] ?? formatMCPToolPriceInput(row.priceNanousd)}
                           inputMode="decimal"

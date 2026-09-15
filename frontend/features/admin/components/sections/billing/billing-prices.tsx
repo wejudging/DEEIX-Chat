@@ -27,6 +27,7 @@ import {
   DEFAULT_PAGE_SIZE,
   downloadJSONFile,
   formatDateTime,
+  isTimePricingFormValid,
   mergeModelPricingItem,
   normalizePricingMode,
   parseModelPricingImportJSON,
@@ -34,6 +35,7 @@ import {
   parseTieredPricingJSON,
   shortListDescription,
   stringifyTieredPricing,
+  stringifyTimePricing,
   type BillingModelPricingRow,
   type PricingFormState,
   type TieredPricingTierForm,
@@ -114,6 +116,8 @@ function OfficialPricingStack({ values, className }: { values: string[]; classNa
   );
 }
 
+// 官方目录（OpenRouter）价格本身以 USD 计价，这里保持美元符号展示原价，
+// 由“导入倍率”负责换算成站点币种；站点币种符号只用于已落库的站点定价。
 function officialPricingUSD(value: string): string {
   return `$${formatOfficialPricingValue(Number(value))}`;
 }
@@ -384,6 +388,7 @@ export function BillingPricesSection({ models, pricingItems, setPricingItems, lo
         callUSDPerCall: form.pricingMode === "call" ? parsePrice(form.call) : 0,
         durationUSDPerSecond: form.pricingMode === "duration" ? parsePrice(form.duration) : 0,
         tieredPricingJSON: form.pricingMode === "tiered" ? stringifyTieredPricing(form.tieredTiers) : undefined,
+        timePricingJSON: stringifyTimePricing(form.timePricing),
         isFree: form.isFree,
       };
       const data = await upsertAdminModelPricing(token, payload);
@@ -498,6 +503,7 @@ export function BillingPricesSection({ models, pricingItems, setPricingItems, lo
         callUSDPerCall: pricingMode === "call" ? row.pricing?.callUSDPerCall ?? 0 : 0,
         durationUSDPerSecond: pricingMode === "duration" ? row.pricing?.durationUSDPerSecond ?? 0 : 0,
         tieredPricingJSON: pricingMode === "tiered" ? row.pricing?.tieredPricingJSON || stringifyTieredPricing(createFormState(row).tieredTiers) : undefined,
+        timePricingJSON: row.pricing?.timePricingJSON || "{}",
         isFree: checked,
       };
       setPricingItems((current) => mergeModelPricingItem(current, createOptimisticModelPricing(row, payload)));

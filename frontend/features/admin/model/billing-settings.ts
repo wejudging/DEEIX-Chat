@@ -27,6 +27,37 @@ export type TieredPricingTierForm = {
   output: string;
 };
 
+export type TimePricingWindowForm = {
+  id: string;
+  start: string;
+  end: string;
+};
+
+export type TimePricingPeriodForm = {
+  id: string;
+  label: string;
+  multiplier: string;
+  weekdays: number[];
+  windows: TimePricingWindowForm[];
+};
+
+export type TimePricingCampaignForm = {
+  id: string;
+  label: string;
+  multiplier: string;
+  month: string;
+  fromDay: string;
+  beforeDay: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type TimePricingFormState = {
+  timezone: string;
+  periods: TimePricingPeriodForm[];
+  campaigns: TimePricingCampaignForm[];
+};
+
 export type PricingFormState = {
   platformModelName: string;
   pricingMode: PricingMode;
@@ -38,6 +69,7 @@ export type PricingFormState = {
   call: string;
   duration: string;
   tieredTiers: TieredPricingTierForm[];
+  timePricing: TimePricingFormState;
   isFree: boolean;
 };
 
@@ -62,6 +94,7 @@ export type ModelPricingExportEntry = {
   callUSDPerCall: number;
   durationUSDPerSecond: number;
   tieredPricing?: unknown;
+  timePricing?: unknown;
 };
 
 export type ModelPricingImportParseResult = {
@@ -81,6 +114,7 @@ export type ModelPricingImportMessages = {
   invalidNumber: (model: string, field: string) => string;
   invalidTieredPricing: (model: string, field: string) => string;
   invalidTieredPricingJSON: (model: string) => string;
+  invalidTimePricing: (model: string, field: string) => string;
 };
 
 export const DEFAULT_PAGE_SIZE = 25;
@@ -157,11 +191,35 @@ export function shortListDescription(items: string[], emptyText = "", moreLabel 
   return items.length > 5 ? `${visible} ${moreLabel} ${items.length}` : visible;
 }
 
+// 站点金额（模型单价、余额、赠送额度）一律按展示币种记录，管理端金额前缀必须跟随
+// display_currency。上游写死 "$" 会让人民币站点把人民币金额显示成美元。
+let adminBillingCurrencySymbol = "$";
+
+export function setAdminBillingCurrencySymbol(symbol: string | null | undefined): void {
+  const normalized = typeof symbol === "string" ? symbol.trim() : "";
+  adminBillingCurrencySymbol = normalized || "$";
+}
+
+export function getAdminBillingCurrencySymbol(): string {
+  return adminBillingCurrencySymbol;
+}
+
+export function resolveAdminBillingCurrencySymbol(
+  displayCurrency?: string | null,
+  usdToCnyRate?: number | null,
+): string {
+  if (displayCurrency !== "CNY") {
+    return "$";
+  }
+  const rate = Number(usdToCnyRate);
+  return Number.isFinite(rate) && rate > 0 ? "¥" : "$";
+}
+
 export function formatUSD(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
-    return "$0";
+    return `${adminBillingCurrencySymbol}0`;
   }
-  return `$${value.toLocaleString("en-US", {
+  return `${adminBillingCurrencySymbol}${value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 6,
   })}`;
@@ -175,8 +233,8 @@ export function formatAmountCents(cents: number, currency: string): string {
 }
 
 export function formatCreditUSD(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "$0";
-  return `$${value.toLocaleString("en-US", {
+  if (!Number.isFinite(value) || value <= 0) return `${adminBillingCurrencySymbol}0`;
+  return `${adminBillingCurrencySymbol}${value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
@@ -235,6 +293,256 @@ export function stringifyTieredPricing(tiers: TieredPricingTierForm[]): string {
   });
 }
 
+export const DEFAULT_TIME_PRICING_TIMEZONE = "Asia/Shanghai";
+export const ALL_TIME_PRICING_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+
+let timePricingFormIDSeed = 0;
+
+function nextTimePricingFormID(prefix: string): string {
+  timePricingFormIDSeed += 1;
+  return `${prefix}-${Date.now().toString(36)}-${timePricingFormIDSeed}`;
+}
+
+export function createTimePricingWindowForm(start = "09:00", end = "12:00"): TimePricingWindowForm {
+  return { id: nextTimePricingFormID("window"), start, end };
+}
+
+export function createTimePricingPeriodForm(): TimePricingPeriodForm {
+  return {
+    id: nextTimePricingFormID("period"),
+    label: "",
+    multiplier: "1",
+    weekdays: [1, 2, 3, 4, 5],
+    windows: [createTimePricingWindowForm("09:00", "12:00")],
+  };
+}
+
+export function createTimePricingCampaignForm(): TimePricingCampaignForm {
+  return {
+    id: nextTimePricingFormID("campaign"),
+    label: "",
+    multiplier: "1",
+    month: "",
+    fromDay: "",
+    beforeDay: "",
+    startDate: "",
+    endDate: "",
+  };
+}
+
+export function emptyTimePricingFormState(): TimePricingFormState {
+  return { timezone: "", periods: [], campaigns: [] };
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function timePricingNumberText(value: unknown, fallback = ""): string {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? String(parsed) : fallback;
+}
+
+function parseTimePricingWeekdays(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const weekdays: number[] = [];
+  for (const item of value) {
+    const parsed = typeof item === "number" ? item : Number(item);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 6 && !weekdays.includes(parsed)) {
+      weekdays.push(parsed);
+    }
+  }
+  return weekdays.sort((left, right) => left - right);
+}
+
+// parseTimePricingJSON 解析后端返回的时段计费配置；配置非法或为空时回退到“全天同价”，避免因脏数据打不开编辑弹窗。
+export function parseTimePricingJSON(raw: unknown): TimePricingFormState {
+  const parsed: unknown = typeof raw === "string" ? safeJSONParse(raw) : raw;
+  if (!isRecordValue(parsed)) {
+    return emptyTimePricingFormState();
+  }
+  const timezone = typeof parsed.timezone === "string" ? parsed.timezone.trim() : "";
+  const periods: TimePricingPeriodForm[] = Array.isArray(parsed.periods)
+    ? parsed.periods.filter(isRecordValue).map((period) => ({
+        id: nextTimePricingFormID("period"),
+        label: typeof period.label === "string" ? period.label.trim() : "",
+        multiplier: timePricingNumberText(period.multiplier, "1"),
+        weekdays: parseTimePricingWeekdays(period.weekdays),
+        windows: Array.isArray(period.windows)
+          ? period.windows
+              .filter((window) => Array.isArray(window) && window.length >= 2)
+              .map((window) => {
+                const [start, end] = window as unknown[];
+                return {
+                  id: nextTimePricingFormID("window"),
+                  start: typeof start === "string" ? start.trim() : "",
+                  end: typeof end === "string" ? end.trim() : "",
+                };
+              })
+          : [],
+      }))
+    : [];
+  const campaigns: TimePricingCampaignForm[] = Array.isArray(parsed.campaigns)
+    ? parsed.campaigns.filter(isRecordValue).map((campaign) => ({
+        id: nextTimePricingFormID("campaign"),
+        label: typeof campaign.label === "string" ? campaign.label.trim() : "",
+        multiplier: timePricingNumberText(campaign.multiplier, "1"),
+        month: timePricingNumberText(campaign.month),
+        fromDay: timePricingNumberText(campaign.fromDay),
+        beforeDay: timePricingNumberText(campaign.beforeDay),
+        startDate: timePricingDateText(campaign.startDate),
+        endDate: timePricingDateText(campaign.endDate),
+      }))
+    : [];
+  return { timezone, periods, campaigns };
+}
+
+function timePricingDateText(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : "";
+}
+
+function safeJSONParse(raw: string): unknown {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function timePricingInteger(value: string): number {
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function timePricingMultiplier(value: string): number {
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+// stringifyTimePricing 把编辑态序列化为后端约定的 JSON；没有任何时段与活动时统一落为空对象。
+export function stringifyTimePricing(form: TimePricingFormState): string {
+  if (form.periods.length === 0 && form.campaigns.length === 0) {
+    return "{}";
+  }
+  const timezone = form.timezone.trim();
+  const periods = form.periods.map((period) => ({
+    label: period.label.trim(),
+    multiplier: timePricingMultiplier(period.multiplier),
+    weekdays: [...period.weekdays].sort((left, right) => left - right),
+    windows: period.windows.map((window) => [window.start.trim(), window.end.trim()]),
+  }));
+  const campaigns = form.campaigns.map((campaign) => ({
+    label: campaign.label.trim(),
+    multiplier: timePricingMultiplier(campaign.multiplier),
+    month: timePricingInteger(campaign.month),
+    fromDay: timePricingInteger(campaign.fromDay),
+    beforeDay: timePricingInteger(campaign.beforeDay),
+    startDate: campaign.startDate.trim(),
+    endDate: campaign.endDate.trim(),
+  }));
+  return JSON.stringify({
+    ...(timezone ? { timezone } : {}),
+    periods,
+    campaigns,
+  });
+}
+
+export function timePricingClockMinutes(value: string): number | null {
+  const matched = /^(\d{1,2}):(\d{2})$/u.exec(value.trim());
+  if (!matched) {
+    return null;
+  }
+  const hour = Number(matched[1]);
+  const minute = Number(matched[2]);
+  if (hour > 24 || minute > 59 || (hour === 24 && minute !== 0)) {
+    return null;
+  }
+  return hour * 60 + minute;
+}
+
+export function isTimePricingFormValid(form: TimePricingFormState): boolean {
+  if (form.periods.length === 0 && form.campaigns.length === 0) {
+    return true;
+  }
+  if (form.periods.length > 20 || form.campaigns.length > 20) {
+    return false;
+  }
+  const timezone = form.timezone.trim();
+  if (timezone && !/^[A-Za-z0-9_+\-/]{1,64}$/u.test(timezone)) {
+    return false;
+  }
+  for (const period of form.periods) {
+    if (timePricingMultiplier(period.multiplier) <= 0 || timePricingMultiplier(period.multiplier) > 1000) {
+      return false;
+    }
+    if (period.windows.length > 12) {
+      return false;
+    }
+    for (const weekday of period.weekdays) {
+      if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+        return false;
+      }
+    }
+    for (const window of period.windows) {
+      const start = timePricingClockMinutes(window.start);
+      const end = timePricingClockMinutes(window.end);
+      if (start === null || end === null || end <= start) {
+        return false;
+      }
+    }
+  }
+  for (const campaign of form.campaigns) {
+    if (timePricingMultiplier(campaign.multiplier) <= 0 || timePricingMultiplier(campaign.multiplier) > 1000) {
+      return false;
+    }
+    const month = timePricingInteger(campaign.month);
+    const fromDay = timePricingInteger(campaign.fromDay);
+    const beforeDay = timePricingInteger(campaign.beforeDay);
+    if (month > 12 || fromDay > 31 || beforeDay > 31) {
+      return false;
+    }
+    if (fromDay > 0 && beforeDay > 0 && fromDay >= beforeDay) {
+      return false;
+    }
+    const startDate = campaign.startDate.trim();
+    const endDate = campaign.endDate.trim();
+    // ISO 日期字符串可直接按字典序比较；与后端一致，EndDate 含当天。
+    if (startDate && !isTimePricingDateText(startDate)) {
+      return false;
+    }
+    if (endDate && !isTimePricingDateText(endDate)) {
+      return false;
+    }
+    if (startDate && endDate && startDate >= endDate) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// isTimePricingDateText 校验 YYYY-MM-DD，并确认是可真实存在的日历日期（排除 2026-02-30）。
+function isTimePricingDateText(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, 10));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 export function createFormState(row: BillingModelPricingRow): PricingFormState {
   const pricing = row.pricing;
   return {
@@ -248,6 +556,7 @@ export function createFormState(row: BillingModelPricingRow): PricingFormState {
     call: String(pricing?.callUSDPerCall ?? 0),
     duration: String(pricing?.durationUSDPerSecond ?? 0),
     tieredTiers: parseTieredPricingJSON(pricing?.tieredPricingJSON) ?? cloneDefaultTieredTiers(),
+    timePricing: parseTimePricingJSON(pricing?.timePricingJSON),
     isFree: pricing?.isFree ?? row.isFree,
   };
 }
@@ -302,6 +611,7 @@ const DEFAULT_IMPORT_MESSAGES: ModelPricingImportMessages = {
   invalidNumber: (model, field) => `${model}.${field} must be a number greater than or equal to 0`,
   invalidTieredPricing: (model, field) => `${model}.${field} must contain a non-empty tiers array`,
   invalidTieredPricingJSON: (model) => `${model}.tieredPricingJSON is not valid JSON`,
+  invalidTimePricing: (model, field) => `${model}.${field} must contain valid time pricing periods or campaigns`,
 };
 
 function numberFromPricingField(
@@ -374,6 +684,38 @@ function parseTieredPricingExportValue(raw: string): unknown {
   }
 }
 
+function parseTimePricingImportValue(
+  entry: Record<string, unknown>,
+  platformModelName: string,
+  errors: string[],
+  messages: ModelPricingImportMessages,
+): string | undefined {
+  const raw = entry.timePricingJSON ?? entry.timePricing;
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+  const parsed = typeof raw === "string" ? safeJSONParse(raw) : raw;
+  if (!isRecordValue(parsed)) {
+    errors.push(messages.invalidTimePricing(platformModelName, "timePricing"));
+    return undefined;
+  }
+  const form = parseTimePricingJSON(parsed);
+  if (!isTimePricingFormValid(form)) {
+    errors.push(messages.invalidTimePricing(platformModelName, "timePricing"));
+    return undefined;
+  }
+  // 统一走一遍解析与序列化，剔除后端会拒绝的未知字段。
+  return stringifyTimePricing(form);
+}
+
+function timePricingExportValue(raw: string): unknown | null {
+  const form = parseTimePricingJSON(raw);
+  if (form.periods.length === 0 && form.campaigns.length === 0) {
+    return null;
+  }
+  return safeJSONParse(stringifyTimePricing(form));
+}
+
 export function buildModelPricingExportObject(pricingItems: AdminModelPricingDTO[]): Record<string, ModelPricingExportEntry> {
   const result: Record<string, ModelPricingExportEntry> = {};
   const sorted = [...pricingItems].sort((left, right) => left.platformModelName.localeCompare(right.platformModelName));
@@ -383,6 +725,7 @@ export function buildModelPricingExportObject(pricingItems: AdminModelPricingDTO
       continue;
     }
     const pricingMode = normalizePricingMode(item.pricingMode);
+    const timePricing = timePricingExportValue(item.timePricingJSON);
     result[platformModelName] = {
       currency: item.currency || "USD",
       isFree: item.isFree,
@@ -395,6 +738,7 @@ export function buildModelPricingExportObject(pricingItems: AdminModelPricingDTO
       callUSDPerCall: pricingMode === "call" ? item.callUSDPerCall : 0,
       durationUSDPerSecond: pricingMode === "duration" ? item.durationUSDPerSecond : 0,
       ...(pricingMode === "tiered" ? { tieredPricing: parseTieredPricingExportValue(item.tieredPricingJSON) } : {}),
+      ...(timePricing ? { timePricing } : {}),
     };
   }
   return result;
@@ -442,6 +786,7 @@ export function createOptimisticModelPricing(row: BillingModelPricingRow, payloa
     callUSDPerCall,
     durationUSDPerSecond,
     tieredPricingJSON: pricingMode === "tiered" ? payload.tieredPricingJSON || "" : "",
+    timePricingJSON: payload.timePricingJSON || "",
     inputNanousdPerMTokens: modelPricingNanousd(inputUSDPerMTokens),
     cacheReadNanousdPerMTokens: modelPricingNanousd(cacheReadUSDPerMTokens),
     cacheWriteNanousdPerMTokens: modelPricingNanousd(cacheWriteUSDPerMTokens),
@@ -520,6 +865,7 @@ export function parseModelPricingImportJSON(
     const tieredPricingJSON = pricingMode === "tiered"
       ? parseTieredPricingImportValue(rawEntry, platformModelName, entryErrors, messages)
       : undefined;
+    const timePricingJSON = parseTimePricingImportValue(rawEntry, platformModelName, entryErrors, messages);
     const request: UpsertAdminModelPricingRequest = {
       platformModelName,
       currency: typeof rawEntry.currency === "string" && rawEntry.currency.trim() ? rawEntry.currency.trim() : "USD",
@@ -533,6 +879,7 @@ export function parseModelPricingImportJSON(
       callUSDPerCall: pricingMode === "call" ? numberFromPricingField(rawEntry, "callUSDPerCall", entryErrors, platformModelName, messages) : 0,
       durationUSDPerSecond: pricingMode === "duration" ? numberFromPricingField(rawEntry, "durationUSDPerSecond", entryErrors, platformModelName, messages) : 0,
       tieredPricingJSON,
+      ...(timePricingJSON !== undefined ? { timePricingJSON } : {}),
     };
     if (entryErrors.length > 0) {
       errors.push(...entryErrors);

@@ -45,6 +45,8 @@ type UpsertModelPricingRequest struct {
 	CallUSDPerCall          *float64 `json:"callUSDPerCall" binding:"required,gte=0"`
 	DurationUSDPerSecond    *float64 `json:"durationUSDPerSecond" binding:"required,gte=0"`
 	TieredPricingJSON       string   `json:"tieredPricingJSON,omitempty" binding:"max=20000"`
+	// TimePricingJSON 配置峰谷时段与限时活动倍率，留空表示全天同一价格。
+	TimePricingJSON string `json:"timePricingJSON,omitempty" binding:"max=20000"`
 }
 
 // BillingConfigRequest 保存计费全局配置。
@@ -475,6 +477,7 @@ type ModelPricingResponse struct {
 	CallUSDPerCall              float64   `json:"callUSDPerCall"`
 	DurationUSDPerSecond        float64   `json:"durationUSDPerSecond"`
 	TieredPricingJSON           string    `json:"tieredPricingJSON"`
+	TimePricingJSON             string    `json:"timePricingJSON"`
 	InputNanousdPerMTokens      int64     `json:"inputNanousdPerMTokens"`
 	CacheReadNanousdPerMTokens  int64     `json:"cacheReadNanousdPerMTokens"`
 	CacheWriteNanousdPerMTokens int64     `json:"cacheWriteNanousdPerMTokens"`
@@ -1151,6 +1154,7 @@ func toModelPricingResponse(item appbilling.ModelPricingView) ModelPricingRespon
 		CallUSDPerCall:              nanousdToUSD(item.CallNanousdPerCall),
 		DurationUSDPerSecond:        nanousdToUSD(item.DurationNanousdPerSecond),
 		TieredPricingJSON:           item.TieredPricingJSON,
+		TimePricingJSON:             item.TimePricingJSON,
 		InputNanousdPerMTokens:      item.InputNanousdPerMTokens,
 		CacheReadNanousdPerMTokens:  item.CacheReadNanousdPerMTokens,
 		CacheWriteNanousdPerMTokens: item.CacheWriteNanousdPerMTokens,
@@ -1176,6 +1180,7 @@ func modelPricingInputFromRequest(req UpsertModelPricingRequest) appbilling.Mode
 		CallNanousdPerCall:          usdToNanousd(*req.CallUSDPerCall),
 		DurationNanousdPerSecond:    usdToNanousd(*req.DurationUSDPerSecond),
 		TieredPricingJSON:           req.TieredPricingJSON,
+		TimePricingJSON:             req.TimePricingJSON,
 	}
 }
 

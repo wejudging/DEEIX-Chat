@@ -18,6 +18,7 @@ import type {
   AdminNativeToolPricingPayload,
   NativeToolPricingDTO,
 } from "@/features/admin/api/billing.types";
+import { getAdminBillingCurrencySymbol } from "@/features/admin/model/billing-settings";
 import { resolveAdminErrorMessage } from "@/features/admin/utils/admin-error";
 import { CollapsibleMotionContent } from "@/shared/components/collapsible-motion-content";
 import {
@@ -238,7 +239,7 @@ export function BillingToolsSection({ billingConfig, setBillingConfig, loading }
                   <TableCell className="py-1.5 font-mono text-xs text-muted-foreground">{row.type || row.toolKey}</TableCell>
                   <TableCell className="py-1.5 text-right font-mono text-xs text-muted-foreground">
                     <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-muted-foreground">$</span>
+                      <span className="text-muted-foreground">{getAdminBillingCurrencySymbol()}</span>
                       <Input
                         value={nativeToolPriceDrafts[row.toolKey] ?? formatNativeToolPriceInput(row.priceNanousd)}
                         inputMode="decimal"

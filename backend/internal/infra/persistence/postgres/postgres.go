@@ -270,6 +270,9 @@ func applyBillingBaselineIndexes(db *gorm.DB) error {
 		ON "billing_redemption_codes" ("status", "mode", "id")`,
 		`CREATE INDEX IF NOT EXISTS idx_billing_redemptions_code_user_created
 		ON "billing_redemptions" ("code_id", "user_id", "created_at")`,
+		`ALTER TABLE "billing_model_prices"
+		ADD COLUMN IF NOT EXISTS "time_pricing_json" text NOT NULL DEFAULT '{}'`,
+		`COMMENT ON COLUMN "billing_model_prices"."time_pricing_json" IS '时段与活动计费配置JSON'`,
 	}
 
 	for _, statement := range statements {
