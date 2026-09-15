@@ -147,6 +147,7 @@ type ChatMessageBotProps = {
   onContinueAssistantMessage?: (message: ChatAreaMessage) => Promise<void> | void;
   onEditAssistantMessage: (message: ChatAreaMessage, content: string) => Promise<boolean> | boolean;
   onForkMessage?: (message: ChatAreaMessage) => Promise<void> | void;
+  onDeleteMessage?: (message: ChatAreaMessage) => Promise<void> | void;
   onCycleMessageBranch: (parentPublicID: string | null, direction: "previous" | "next") => void;
   onReactAssistantMessage: (publicID: string, reaction: AssistantReaction) => void;
   onCopy: () => void;
@@ -179,6 +180,7 @@ export function ChatMessageBot({
   onContinueAssistantMessage,
   onEditAssistantMessage,
   onForkMessage,
+  onDeleteMessage,
   onCycleMessageBranch,
   onReactAssistantMessage,
   onCopy,
@@ -215,6 +217,10 @@ export function ChatMessageBot({
   const onFork = React.useCallback(
     () => onForkMessage?.(item),
     [item, onForkMessage],
+  );
+  const onDelete = React.useCallback(
+    () => onDeleteMessage?.(item),
+    [item, onDeleteMessage],
   );
   const onEditSave = React.useCallback(async () => {
     const nextContent = editingValue.trim();
@@ -471,6 +477,7 @@ export function ChatMessageBot({
         onEdit={() => setIsEditing(true)}
         onCopy={onCopy}
         onFork={onForkMessage ? onFork : undefined}
+        onDelete={onDeleteMessage ? onDelete : undefined}
         copySucceeded={copySucceeded}
         onReact={(value) => onReactAssistantMessage(item.publicID, value)}
         showModelInfo={showModelInfo}
