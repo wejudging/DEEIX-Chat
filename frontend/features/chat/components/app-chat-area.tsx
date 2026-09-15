@@ -412,7 +412,7 @@ export function AppChatArea() {
     () => (newConversationProject?.defaultKnowledgeBaseIDs ?? []).slice(0, 8),
     [newConversationProject],
   );
-  const { onSelectedKnowledgeBasesChange, onSelectedSkillsChange, onSelectedToolsChange: applySelectedToolsChange } = useChatConversationDefaults({
+  const { onSelectedSkillsChange, onSelectedToolsChange: applySelectedToolsChange } = useChatConversationDefaults({
     conversationID,
     contextKey: newConversationSelectionKey,
     defaultsPending: newConversationDefaultsPending,
