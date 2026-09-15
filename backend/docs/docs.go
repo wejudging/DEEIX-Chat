@@ -21847,6 +21847,7 @@ const docTemplate = `{
                 "platformModelName",
                 "pricingMode",
                 "tieredPricingJSON",
+                "timePricingJSON",
                 "updatedAt"
             ],
             "properties": {
@@ -21918,6 +21919,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tieredPricingJSON": {
+                    "type": "string"
+                },
+                "timePricingJSON": {
                     "type": "string"
                 },
                 "updatedAt": {
@@ -26965,6 +26969,11 @@ const docTemplate = `{
                     ]
                 },
                 "tieredPricingJSON": {
+                    "type": "string",
+                    "maxLength": 20000
+                },
+                "timePricingJSON": {
+                    "description": "TimePricingJSON 配置峰谷时段与限时活动倍率，留空表示全天同一价格。",
                     "type": "string",
                     "maxLength": 20000
                 }

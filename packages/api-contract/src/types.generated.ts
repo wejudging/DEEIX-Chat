@@ -2223,6 +2223,7 @@ export interface ModelPricingResponse {
   platformModelName: string;
   pricingMode: string;
   tieredPricingJSON: string;
+  timePricingJSON: string;
   updatedAt: string;
 }
 
@@ -3889,6 +3890,11 @@ export interface UpsertModelPricingRequest {
   pricingMode: "token" | "call" | "duration" | "tiered";
   /** @maxLength 20000 */
   tieredPricingJSON?: string;
+  /**
+   * TimePricingJSON 配置峰谷时段与限时活动倍率，留空表示全天同一价格。
+   * @maxLength 20000
+   */
+  timePricingJSON?: string;
 }
 
 export interface UpsertUpstreamModelRequest {

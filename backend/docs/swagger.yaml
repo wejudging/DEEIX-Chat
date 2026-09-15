@@ -5080,6 +5080,8 @@ definitions:
         type: string
       tieredPricingJSON:
         type: string
+      timePricingJSON:
+        type: string
       updatedAt:
         type: string
     required:
@@ -5104,6 +5106,7 @@ definitions:
     - platformModelName
     - pricingMode
     - tieredPricingJSON
+    - timePricingJSON
     - updatedAt
     type: object
   ModelProbeBatchResponse:
@@ -8650,6 +8653,10 @@ definitions:
         - tiered
         type: string
       tieredPricingJSON:
+        maxLength: 20000
+        type: string
+      timePricingJSON:
+        description: TimePricingJSON 配置峰谷时段与限时活动倍率，留空表示全天同一价格。
         maxLength: 20000
         type: string
     required:
