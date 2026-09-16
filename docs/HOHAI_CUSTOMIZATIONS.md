@@ -7,6 +7,16 @@ The behavior below was revalidated against upstream commit `bb4e8fe0` on 2026-09
 against upstream commit `135007e7` (the `upstream/dev` tip merged into `769055ce`) on 2026-09-15.
 The 2026-09-15 sync also adopted the upstream message-delete feature (PR #704) and the nested
 code-block rendering fix (PR #735) without touching any HOHAI customization.
+The 2026-09-16 sync merged upstream commit `d8d94ab7` (16 upstream commits, PR #749–#756) into
+`c158b225`: OpenRouter image generation, richer markdown paste, account-lockout error reporting,
+tool-trace retention during long reasoning streams, markdown table line-height fixes, stable model
+submenu placement, leading system-message merging for OpenAI-compatible upstreams, and the dark
+theme contrast recalibration that also keeps the color mode per device. The only HOHAI-adjacent
+files upstream touched are `app-chat-area` neighbours, `chat-model-picker.tsx`,
+`message-submit-exchange.ts`, the error catalogs, `auth/service.go` and the Swagger documents; all
+of them merged automatically and still carry their HOHAI behaviour. Revalidated with
+`pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
+`pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
 
 ## Composer tools
 
