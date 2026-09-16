@@ -7,6 +7,7 @@ import {
 import { streamEventErrorToApiError } from "@/features/chat/model/message-submit-media";
 import type { ChatSubmissionPlan } from "@/features/chat/model/message-submit-plan";
 import {
+  mergeLiveUpstreamThinkTrace,
   preserveRicherLiveUpstreamThinkTrace,
   readLiveUpstreamThinkTrace,
 } from "@/features/chat/model/upstream-think-store";
@@ -161,7 +162,7 @@ export function abortPendingExchange(current: PendingExchange, clientRunID: stri
     assistantStreaming: false,
     assistantFileProc: false,
     assistantActivityLabel: undefined,
-    assistantProcessTrace: readLiveUpstreamThinkTrace(clientRunID) ?? current.assistantProcessTrace,
+    assistantProcessTrace: mergeLiveUpstreamThinkTrace(current.assistantProcessTrace, readLiveUpstreamThinkTrace(clientRunID)),
     assistantInlineAlert: undefined,
   };
 }
@@ -182,7 +183,7 @@ export function failPendingExchange(
     assistantStreaming: false,
     assistantFileProc: false,
     assistantActivityLabel: undefined,
-    assistantProcessTrace: readLiveUpstreamThinkTrace(params.clientRunID) ?? current.assistantProcessTrace,
+    assistantProcessTrace: mergeLiveUpstreamThinkTrace(current.assistantProcessTrace, readLiveUpstreamThinkTrace(params.clientRunID)),
     assistantStatus: "error",
     assistantErrorCode: params.errorCode,
     assistantErrorMessage: params.errorMessage,
