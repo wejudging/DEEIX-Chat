@@ -17,6 +17,16 @@ files upstream touched are `app-chat-area` neighbours, `chat-model-picker.tsx`,
 of them merged automatically and still carry their HOHAI behaviour. Revalidated with
 `pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
 `pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
+The 2026-09-18 sync merged upstream commit `6a39b0ee` (6 upstream commits, PR #757–#760, DEEIX Chat
+`0.4.2`) into `ed9f76e0`: the embedding-dimension policy that lets a provider omit `dimensions`,
+the RAG re-index loop terminator that records "extracted but no text" files as an `empty` terminal
+state instead of retrying forever, and the `0.4.2` version bump. Upstream touched 39 files
+(+742/−94); the only files HOHAI also edits are the generated contracts (`backend/docs/*`,
+`packages/api-contract/src/types.generated.ts`) and `frontend/package.json`, and all five merged
+automatically with the HOHAI fields (`billingBalanceUSD`, `billingBalanceNanousd`,
+`billingAccountCurrency`, `billingAccountStatus`, `timePricingJSON`) intact. Revalidated with
+`pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
+`pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
 
 ## Composer tools
 
