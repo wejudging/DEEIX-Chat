@@ -27,10 +27,23 @@ automatically with the HOHAI fields (`billingBalanceUSD`, `billingBalanceNanousd
 `billingAccountCurrency`, `billingAccountStatus`, `timePricingJSON`) intact. Revalidated with
 `pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
 `pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
+The 2026-09-21 sync merged upstream commit `5afb5899` (3 upstream commits, PR #763) into `dc1abdad`:
+the interactive UI-component system for assistant replies, covering a backend `uicomponent`
+domain/service/repository/HTTP stack, the persisted component library, and the frontend block
+renderer (calculator, chart, data table, decision tree, diff, function plot, gantt, quiz, stat grid,
+JSON schema, card grid) with its sandbox host, editor dialog, safe expression evaluator and
+line-diff helper. Upstream touched 97 files (+11,202/-258). Only two files conflicted:
+`app-chat-area.tsx` and `chat-input.tsx`. Upstream replaced the standalone Blocks toggle with a
+unified **输出 / Output** popover (`ChatUIComponents`) that holds both the 视觉布局提示 switch and
+the component catalog; HOHAI keeps that popover while still hiding the composer knowledge-base
+button, the model parameter configuration and the Markdown preview, so
+`selectedKnowledgeBaseIDs`/`defaultToolIDs` stay out of the composer props. Revalidated with
+`pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
+`pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
 
 ## Composer tools
 
-- The composer footer keeps only the plus tools menu and one text **智能搜索 / Smart search** toggle on the left; model parameter configuration and Markdown preview controls are intentionally hidden.
+- The composer footer keeps only the plus tools menu, one text **智能搜索 / Smart search** toggle and one **输出 / Output** popover on the left; model parameter configuration and Markdown preview controls are intentionally hidden. Since the 2026-09-21 sync the former standalone Blocks toggle lives inside that popover as the 视觉布局提示 switch, next to the interactive-component catalog.
 - The smart-search toggle directly enables or disables the matched web-search and web-fetch tools for the current composer, without opening an MCP selection card. Other selected tools remain untouched when smart search is toggled off.
 - The composer MCP entry is presented as **智能搜索 / Smart search** with a globe icon and an active-state background.
 - On accounts that have never saved a default MCP selection, HOHAI automatically enables one web-search tool and one web-fetch tool when the catalog exposes matching tools. Matching is conservative and supports names such as `web_search`, `web_fetch`, `联网搜索`, and `网页抓取`.
