@@ -8,7 +8,6 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { AudioLines } from "@/components/animate-ui/icons/audio-lines";
-import { Blocks } from "@/components/animate-ui/icons/blocks";
 import { Crop } from "@/components/animate-ui/icons/crop";
 import { Link as LinkIcon } from "@/components/animate-ui/icons/link";
 import { Pause } from "@/components/animate-ui/icons/pause";
@@ -40,6 +39,7 @@ import {
 import { PlusIcon } from "@/components/ui/plus";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatMCP } from "@/features/chat/components/sections/chat-mcp";
+import { ChatUIComponents } from "@/features/chat/components/sections/chat-ui-components";
 import { ChatModelPicker } from "@/features/chat/components/sections/chat-model-picker";
 import { ChatMentionMenuPortal } from "@/features/chat/components/shared/chat-mention-menu";
 import { useChatMentionMenu } from "@/features/chat/hooks/use-chat-mention-menu";
@@ -64,6 +64,7 @@ import type { ConversationOptions } from "@/shared/api/conversation.types";
 import type { FileObjectDTO } from "@/shared/api/file.types";
 import type { MCPToolDTO } from "@/shared/api/mcp.types";
 import type { SkillSummaryDTO } from "@/shared/api/skills.types";
+import type { UIComponentDTO } from "@/shared/api/ui-components.types";
 import { useDialogSnapshot } from "@/shared/hooks/use-dialog-snapshot";
 import { useScrollFadeFallbackRef } from "@/shared/hooks/use-scroll-fade-fallback-ref";
 import type { BillingDisplayCurrency } from "@/shared/lib/billing-display";
@@ -106,6 +107,10 @@ type ChatInputProps = {
   availableTools: MCPToolDTO[];
   selectedToolIDs: number[];
   selectedSkills: SkillSummaryDTO[];
+  uiComponents: UIComponentDTO[];
+  uiComponentsLoading: boolean;
+  selectedUIComponentIDs: number[];
+  defaultUIComponentIDs: number[];
   queuedMessages: QueuedComposerMessage[];
   htmlVisualPromptEnabled: boolean;
   maxSelectedTools: number;
@@ -122,6 +127,7 @@ type ChatInputProps = {
   onModelCatalogRefresh?: () => void | Promise<void>;
   onSelectedToolsChange: (toolIDs: number[]) => void;
   onSelectedSkillsChange: (skills: SkillSummaryDTO[]) => void;
+  onSelectedUIComponentsChange: (ids: number[]) => void;
   onHTMLVisualPromptChange: (enabled: boolean) => void;
   onAttachExistingFile: (file: FileObjectDTO) => void | Promise<void>;
   onUploadFiles: (files: File[]) => void | Promise<void>;
@@ -252,6 +258,10 @@ function ChatInputComponent({
   availableTools,
   selectedToolIDs,
   selectedSkills,
+  uiComponents,
+  uiComponentsLoading,
+  selectedUIComponentIDs,
+  defaultUIComponentIDs,
   queuedMessages,
   htmlVisualPromptEnabled,
   maxSelectedTools,
@@ -268,6 +278,7 @@ function ChatInputComponent({
   onModelCatalogRefresh,
   onSelectedToolsChange,
   onSelectedSkillsChange,
+  onSelectedUIComponentsChange,
   onHTMLVisualPromptChange,
   onAttachExistingFile,
   onUploadFiles,
@@ -283,7 +294,6 @@ function ChatInputComponent({
   const tComposer = useTranslations("chat.composer");
   const tFileStatus = useTranslations("files.status");
   const locale = useLocale();
-  const [isBlocksHovered, setIsBlocksHovered] = React.useState(false);
   const [isVoiceHovered, setIsVoiceHovered] = React.useState(false);
   const [toolsMenuHovered, setToolsMenuHovered] = React.useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = React.useState(false);
@@ -957,37 +967,17 @@ function ChatInputComponent({
                 />
               ) : null}
 
-              {showHTMLVisualPromptButton ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InputGroupButton
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className={cn(
-                        "size-7 rounded-md text-muted-foreground hover:text-foreground sm:size-8",
-                        htmlVisualPromptEnabled && "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
-                      )}
-                      disabled={loading || uploading}
-                      aria-label={tComposer("htmlVisualPrompt")}
-                      aria-pressed={htmlVisualPromptEnabled}
-                      onClick={() => onHTMLVisualPromptChange(!htmlVisualPromptEnabled)}
-                      onMouseEnter={() => setIsBlocksHovered(true)}
-                      onMouseLeave={() => setIsBlocksHovered(false)}
-                    >
-                      <Blocks
-                        size={20}
-                        strokeWidth={1.4}
-                        animate={htmlVisualPromptEnabled ? "default" : isBlocksHovered ? "default" : undefined}
-                      />
-                    </InputGroupButton>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-72 text-xs leading-5">
-                    {htmlVisualPromptEnabled
-                      ? tComposer("htmlVisualPromptEnabled")
-                      : tComposer("htmlVisualPromptDisabled")}
-                  </TooltipContent>
-                </Tooltip>
+              {!isMediaMode ? (
+                <ChatUIComponents
+                  components={uiComponents}
+                  selectedIDs={selectedUIComponentIDs}
+                  defaultIDs={defaultUIComponentIDs}
+                  loading={uiComponentsLoading}
+                  placementPreference={isConversationMode ? "top" : "bottom"}
+                  disabled={loading || uploading}
+                  onChange={onSelectedUIComponentsChange}
+                  htmlVisual={showHTMLVisualPromptButton ? { enabled: htmlVisualPromptEnabled, onChange: onHTMLVisualPromptChange } : undefined}
+                />
               ) : null}
 
             </div>
