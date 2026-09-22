@@ -17,6 +17,30 @@ files upstream touched are `app-chat-area` neighbours, `chat-model-picker.tsx`,
 of them merged automatically and still carry their HOHAI behaviour. Revalidated with
 `pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
 `pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
+The 2026-09-22 sync merged upstream commit `d4724833` (21 upstream commits, PR #740 and #767–#773,
+DEEIX Chat `0.4.3`) into `323fcdba`. Upstream touched 71 files (+2,582/−788): the MCP user-context
+token audience/`jti` binding, user-message expand and bubble typography fixes, a pinned message
+viewport while streaming, a configurable toast position, artifact previews on the public share
+page and a reworked admin model pricing table.
+
+The one real conflict was billed time-of-day pricing: upstream shipped its own implementation
+(`ModelPricing.SchedulePricingJSON`, `schedule_pricing.go`, `schedule-pricing.ts`,
+`billing-schedule-editor.tsx`), which overlaps the HOHAI capability described under
+**Time-of-day and campaign pricing** below. HOHAI keeps its own implementation, because production
+runs it on four models and the upstream version cannot express what they use: it has no timezone
+field (server-local clock only), no interval windows within a day, and no limited-time campaigns.
+Upstream's parallel implementation is therefore dropped on every sync — the `schedulePricingJSON`
+field and its swagger/TypeScript contract, `schedule_pricing.go` (with its test), the
+`schedule-pricing.ts` helpers, `billing-schedule-editor.tsx`, the schedule badge in the admin price
+table, the schedule block in the chat model tooltip, the `schedule_period_name` /
+`schedule_rate_percent` ledger columns and the `billingScheduleNote` display helper. Keep
+`timePricingJSON` as the single source of truth; the generated contracts are regenerated with
+`pnpm api:generate` after the merge so `pnpm api:check` stays green.
+
+Adjacent merges worth knowing about: the admin price table now renders three decimals through the
+HOHAI currency-aware `formatUSD`, and the composer/i18n files carry both sides' keys. Revalidated
+with `pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
+`pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
 The 2026-09-18 sync merged upstream commit `6a39b0ee` (6 upstream commits, PR #757–#760, DEEIX Chat
 `0.4.2`) into `ed9f76e0`: the embedding-dimension policy that lets a provider omit `dimensions`,
 the RAG re-index loop terminator that records "extracted but no text" files as an `empty` terminal
