@@ -111,8 +111,8 @@ func (s *Service) resolveGroupRatePercent(ctx context.Context, userID uint, plat
 	return s.groupRateResolver.GetUserModelGroupRateMultiplierPercent(ctx, userID, platformModelID, extraGroupIDs)
 }
 
-// composeGroupRatePercent 将权限组倍率百分比叠加到基础倍率。
-func composeGroupRatePercent(base billingRateMultiplier, percent int) billingRateMultiplier {
+// composeRatePercent 按百分比叠加倍率（100 = 1.0x），权限组倍率与时段倍率共用。
+func composeRatePercent(base billingRateMultiplier, percent int) billingRateMultiplier {
 	if percent <= 0 || percent == 100 {
 		return base
 	}
@@ -1400,7 +1400,7 @@ func (s *Service) EstimateUsageNanousd(ctx context.Context, userID uint, input U
 	if err != nil {
 		return 0, err
 	}
-	rateMultiplier = composeGroupRatePercent(rateMultiplier, groupRatePercent)
+	rateMultiplier = composeRatePercent(rateMultiplier, groupRatePercent)
 	timePricingConfig, err := parseTimePricingConfig(pricing.TimePricingJSON)
 	if err != nil {
 		return 0, err
@@ -1809,7 +1809,7 @@ func (s *Service) BuildUsageLedger(ctx context.Context, input UsagePricingInput)
 		if grpErr != nil {
 			return nil, grpErr
 		}
-		rateMultiplier = composeGroupRatePercent(rateMultiplier, groupRatePercent)
+		rateMultiplier = composeRatePercent(rateMultiplier, groupRatePercent)
 	}
 	pricing, err := s.repo.GetModelPricing(ctx, platformModelName)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
@@ -2511,7 +2511,7 @@ func (s *Service) buildUsageServiceItem(ctx context.Context, input ServiceUsageI
 		if err != nil {
 			return item, err
 		}
-		rateMultiplier = composeGroupRatePercent(rateMultiplier, groupRatePercent)
+		rateMultiplier = composeRatePercent(rateMultiplier, groupRatePercent)
 		item.RateMultiplier = billingRateMultiplierValue(rateMultiplier)
 	}
 	var pricing *domainbilling.ModelPricing

@@ -2215,6 +2215,15 @@ func toDomainModelPricing(item model.ModelPricing) domainbilling.ModelPricing {
 	}
 }
 
+// emptyJSONObject 把空字符串落库为 {}，与列默认值一致。
+func emptyJSONObject(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "{}"
+	}
+	return raw
+}
+
 func toDomainPaymentOrder(item model.PaymentOrder) domainbilling.PaymentOrder {
 	return domainbilling.PaymentOrder{
 		ID:                 item.ID,

@@ -167,7 +167,6 @@
     "platformModel": "平台模型",
     "free": "免费",
     "pricingMode": "计费模式",
-    "basePrice": "基础单价",
     "updatedAt": "更新时间",
     "empty": "暂无模型定价配置",
     "modelInfo": "模型信息",
@@ -260,12 +259,43 @@
     "timePricingInvalid": "时段或活动配置无效，请检查倍率、星期与时间窗。",
     "units": {
       "call": "/ 次",
-      "second": "/ 秒",
-      "input": "/ 1M 输入",
-      "output": "/ 1M 输出",
-      "cacheRead": "/ 1M 缓存读",
-      "cacheWrite": "/ 1M 缓存写"
-    }
+      "second": "/ 秒"
+    },
+    "schedule": {
+      "title": "时段倍率",
+      "hint": "按服务器本地时间叠加到基础单价，100 = 原价；结束不晚于开始表示跨午夜。",
+      "add": "添加时段",
+      "name": "名称",
+      "ratePercent": "倍率",
+      "remove": "删除",
+      "invalid": "时段倍率配置有误，请检查标红的时段。",
+      "issues": {
+        "name": "名称不能为空且不超过 32 字",
+        "weekdays": "至少选择一天",
+        "time": "时间格式无效或起止相同",
+        "rate": "倍率需为 1–10000 的整数",
+        "overlap": "与其它时段重叠",
+        "count": "最多 32 个时段"
+      },
+      "weekdays": {
+        "mon": "周一",
+        "tue": "周二",
+        "wed": "周三",
+        "thu": "周四",
+        "fri": "周五",
+        "sat": "周六",
+        "sun": "周日"
+      },
+      "weekdaysLabel": "星期",
+      "start": "开始",
+      "end": "结束",
+      "nextDay": "次日",
+      "timeLabel": "时间"
+    },
+    "notConfigured": "未设置",
+    "tierCount": "{count} 档阶梯",
+    "tieredTitle": "阶梯单价（$ / 1M tokens）",
+    "tierRange": "区间"
   },
   "toolPricing": {
     "title": "工具定价",

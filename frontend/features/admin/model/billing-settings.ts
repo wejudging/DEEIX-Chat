@@ -216,12 +216,11 @@ export function resolveAdminBillingCurrencySymbol(
 }
 
 export function formatUSD(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    return `${adminBillingCurrencySymbol}0`;
-  }
-  return `${adminBillingCurrencySymbol}${value.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 6,
+  // 固定三位小数让管理端价格列对齐；币种前缀仍跟随 display_currency。
+  const amount = Number.isFinite(value) && value > 0 ? value : 0;
+  return `${adminBillingCurrencySymbol}${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   })}`;
 }
 

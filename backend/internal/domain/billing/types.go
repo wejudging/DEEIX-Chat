@@ -399,8 +399,8 @@ type UsageServiceItem struct {
 	CallBilledNanousd             int64
 	DurationBilledNanousd         int64
 	BilledNanousd                 int64
-	TieredFromTokens              int64
-	TieredUpToTokens              *int64
+	TieredFromTokens    int64
+	TieredUpToTokens    *int64
 }
 
 // UsageMonthlySummary 表示用户月度用量聚合。
