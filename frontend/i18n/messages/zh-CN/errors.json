@@ -338,7 +338,7 @@
     "webhookNotConfigured": "支付回调尚未配置。"
   },
   "quota": {
-    "exceeded": "额度已用尽。"
+    "exceeded": "存储空间不足：账号的文件空间已满，与账户余额无关。请删除不需要的会话（勾选「同时删除会话中的文件」）后重试，或联系管理员扩容。"
   },
   "rateLimit": {
     "authenticationExceeded": "认证尝试次数过多，请稍后再试。",

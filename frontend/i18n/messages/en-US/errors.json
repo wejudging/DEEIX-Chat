@@ -338,7 +338,7 @@
     "webhookNotConfigured": "Payment webhook is not configured."
   },
   "quota": {
-    "exceeded": "Quota exceeded."
+    "exceeded": "Out of storage space: your file storage is full — this is unrelated to your account balance. Delete unneeded conversations with “also delete files” selected, or ask an administrator to increase the quota."
   },
   "rateLimit": {
     "authenticationExceeded": "Too many authentication attempts. Try again later.",
