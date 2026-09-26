@@ -17,7 +17,7 @@ files upstream touched are `app-chat-area` neighbours, `chat-model-picker.tsx`,
 of them merged automatically and still carry their HOHAI behaviour. Revalidated with
 `pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
 `pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
-The 2026-09-22 sync merged upstream commit `d4724833` (21 upstream commits, PR #740 and #767–#773,
+The 2026-09-22 sync merged upstream commit `d4724833` (21 upstream commits, PR #740 and #767-#773,
 DEEIX Chat `0.4.3`) into `323fcdba`. Upstream touched 71 files (+2,582/−788): the MCP user-context
 token audience/`jti` binding, user-message expand and bubble typography fixes, a pinned message
 viewport while streaming, a configurable toast position, artifact previews on the public share
@@ -64,8 +64,40 @@ button, the model parameter configuration and the Markdown preview, so
 `selectedKnowledgeBaseIDs`/`defaultToolIDs` stay out of the composer props. Revalidated with
 `pnpm install --frozen-lockfile`, `pnpm api:check`, `pnpm --filter @deeix/web check`,
 `pnpm --filter @deeix/web test:account-plan-identity`, plus Go build, vet and the full test suite.
+The 2026-09-27 sync merged upstream commit `c4e3514f` (25 upstream commits, PR #777-#797, DEEIX Chat
+`0.4.4-beta.1`) into `a798daa8`. This is the monorepo restructure: `frontend/` became `apps/web/`, a
+Tauri desktop app landed under `apps/desktop/`, a shared `packages/core` package was added (auth
+refresh, server URL helpers) and the CI/release workflows were reworked (release tags from VERSION,
+desktop release channels, Windows MSI naming, ruff config). Upstream touched 1,164 files
+(+15,071/-1,433). Git followed the directory rename for every HOHAI-modified file, so only ten paths
+conflicted:
+
+- `apps/web/features/layouts/components/navigation/nav-user.tsx` — kept the HOHAI identity line
+  (plan label plus balance) and adopted upstream's WebKit fix that swaps the `SidebarTransitionContent`
+  wrapper for `group-data-[resizing=true]:opacity-0` on the name block.
+- `apps/web/package.json` — kept `test:account-plan-identity` and adopted upstream's `check` script
+  including `check:arch`.
+- `backend/internal/application/conversation/errs.go` — kept `MessageErrorCodeContextBudgetExceeded`
+  and took upstream's new comment path (`apps/web/i18n/...`).
+- Upstream's parallel time-of-day pricing (`apps/web/shared/model/schedule-pricing.ts`,
+  `billing-schedule-editor.tsx`) and the about pages stay deleted, as in the previous syncs.
+- The nine HOHAI branding assets moved from `frontend/public/branding/` to
+  `apps/web/public/branding/`; upstream has no such directory, so git left them behind at the old
+  path and they had to be moved by hand.
+
+Note the version: upstream `dev` currently carries `0.4.4-beta.1`, so the HOHAI build reports that
+string until upstream cuts a stable release. Revalidated with `pnpm install --frozen-lockfile`,
+`pnpm api:check`, `pnpm --filter @deeix/web check`, `pnpm --filter @deeix/web test:account-plan-identity`,
+plus Go build, vet and the full test suite.
 
 ## Composer tools
+
+### Model picker
+
+- A group that contains at least one free model (`ChatModelOption.pricing.isFree`) shows a 含免费模型 /
+  Has free models chip after the group name in both the mobile group list and the desktop group
+  submenu, so a customer can spot the free options without opening every group. Models without any
+  pricing configuration do not count as free here.
 
 - The composer footer keeps only the plus tools menu, one text **智能搜索 / Smart search** toggle and one **输出 / Output** popover on the left; model parameter configuration and Markdown preview controls are intentionally hidden. Since the 2026-09-21 sync the former standalone Blocks toggle lives inside that popover as the 视觉布局提示 switch, next to the interactive-component catalog.
 - The smart-search toggle directly enables or disables the matched web-search and web-fetch tools for the current composer, without opening an MCP selection card. Other selected tools remain untouched when smart search is toggled off.
