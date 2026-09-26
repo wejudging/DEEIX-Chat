@@ -72,6 +72,11 @@ func (noSubscription) GetCurrentSubscriptionSnapshot(_ context.Context, _ uint, 
 	return nil, nil
 }
 
+// ListBillingAccountSnapshots 是 HOHAI 在 subscriptionResolver 上追加的方法，测试替身需要一并实现。
+func (noSubscription) ListBillingAccountSnapshots(_ context.Context, _ []uint) (map[uint]billing.UserBillingAccountSnapshot, error) {
+	return nil, nil
+}
+
 func newLocalFixture(t *testing.T) (*Service, *localRepo) {
 	t.Helper()
 	repo := &localRepo{users: map[string]*domainuser.User{}}
