@@ -661,6 +661,7 @@
     "empty": "No models",
     "group": "Group",
     "viewPricing": "View pricing",
+    "groupHasFree": "Has free models",
     "freeModel": "Free model",
     "freeModelDescription": "No usage balance will be deducted",
     "tieredPricing": "Tiered pricing",

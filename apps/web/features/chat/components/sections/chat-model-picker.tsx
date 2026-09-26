@@ -63,7 +63,12 @@ function resolveModelGroups(modelOptions: ChatModelOption[]) {
     });
   }
 
-  return Array.from(groupMap.entries()).map(([key, group]) => ({ key, ...group }));
+  return Array.from(groupMap.entries()).map(([key, group]) => ({
+    key,
+    ...group,
+    // 分组里只要有一个免费模型，就在分组名旁提示，方便客户挑选。
+    hasFreeModel: group.items.some((item) => item.pricing?.isFree === true),
+  }));
 }
 
 function ChatModelIdentity({
@@ -798,6 +803,11 @@ export function ChatModelPicker({
                             >
                               <ModelIcon iconUrl={groupIconURL} label={group.label} />
                               <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                              {group.hasFreeModel ? (
+                                <span className="shrink-0 rounded-sm bg-emerald-500/10 px-1 text-[10px] font-medium leading-4 text-emerald-600 dark:text-emerald-400">
+                                  {t("groupHasFree")}
+                                </span>
+                              ) : null}
                               <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80">
                                 {group.items.length}
                               </span>
@@ -889,6 +899,11 @@ export function ChatModelPicker({
                               >
                                 <ModelIcon iconUrl={groupIconURL} label={group.label} />
                                 <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                                {group.hasFreeModel ? (
+                                  <span className="shrink-0 rounded-sm bg-emerald-500/10 px-1 text-[10px] font-medium leading-4 text-emerald-600 dark:text-emerald-400">
+                                    {t("groupHasFree")}
+                                  </span>
+                                ) : null}
                                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80">
                                   {group.items.length}
                                 </span>
