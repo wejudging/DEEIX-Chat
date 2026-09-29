@@ -71,6 +71,20 @@ function resolveModelGroups(modelOptions: ChatModelOption[]) {
   }));
 }
 
+/** 免费模型的小标签，列表行、已选模型与分组名共用同一套样式。 */
+function FreeModelBadge({ label, className }: { label: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-sm bg-emerald-500/10 px-1 text-[10px] font-medium leading-4 text-emerald-600 dark:text-emerald-400",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 function ChatModelIdentity({
   model,
   density = "default",
@@ -90,6 +104,7 @@ function ChatModelIdentity({
   );
   const iconURL = React.useMemo(() => resolveModelIconURL(identity.modelIcon), [identity.modelIcon]);
   const compact = density === "compact";
+  const t = useTranslations("chat.modelPicker");
 
   return (
     <div className={cn("flex min-w-0 items-center", compact ? "gap-2" : "gap-2.5")}>
@@ -104,6 +119,7 @@ function ChatModelIdentity({
           >
             {platformModelName}
           </p>
+          {model.pricing?.isFree ? <FreeModelBadge label={t("freeBadge")} /> : null}
         </div>
       </div>
     </div>
@@ -207,8 +223,9 @@ function ModelPricingTooltipContent({
   pricing: NonNullable<ChatModelOption["pricing"]>;
   billingDisplay: BillingDisplayOptions;
   labels: {
-    freeModel: string;
-    freeModelDescription: string;
+  freeModel: string;
+  freeModelDescription: string;
+  freeBadge: string;
     tieredPricing: string;
     callPricing: string;
     durationPricing: string;
@@ -410,6 +427,7 @@ function ChatModelMenuItem({
       <span className="min-w-0 flex-1 truncate leading-4">
         {platformModelName}
       </span>
+      {model.pricing?.isFree ? <FreeModelBadge label={pricingLabels.freeBadge} /> : null}
       <span className="flex size-3 shrink-0 items-center justify-center">
         {selected ? <Check className="size-3 text-current" strokeWidth={1.7} /> : null}
       </span>
@@ -503,6 +521,7 @@ export function ChatModelPicker({
     () => ({
       freeModel: t("freeModel"),
       freeModelDescription: t("freeModelDescription"),
+      freeBadge: t("freeBadge"),
       tieredPricing: t("tieredPricing"),
       callPricing: t("callPricing"),
       durationPricing: t("durationPricing"),
@@ -804,9 +823,7 @@ export function ChatModelPicker({
                               <ModelIcon iconUrl={groupIconURL} label={group.label} />
                               <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
                               {group.hasFreeModel ? (
-                                <span className="shrink-0 rounded-sm bg-emerald-500/10 px-1 text-[10px] font-medium leading-4 text-emerald-600 dark:text-emerald-400">
-                                  {t("groupHasFree")}
-                                </span>
+                                <FreeModelBadge label={t("groupHasFree")} />
                               ) : null}
                               <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80">
                                 {group.items.length}
@@ -900,9 +917,7 @@ export function ChatModelPicker({
                                 <ModelIcon iconUrl={groupIconURL} label={group.label} />
                                 <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
                                 {group.hasFreeModel ? (
-                                  <span className="shrink-0 rounded-sm bg-emerald-500/10 px-1 text-[10px] font-medium leading-4 text-emerald-600 dark:text-emerald-400">
-                                    {t("groupHasFree")}
-                                  </span>
+                                  <FreeModelBadge label={t("groupHasFree")} />
                                 ) : null}
                                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/80">
                                   {group.items.length}

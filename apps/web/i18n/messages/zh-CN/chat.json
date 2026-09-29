@@ -668,6 +668,7 @@
     "group": "分组",
     "viewPricing": "查看价格",
     "groupHasFree": "含免费模型",
+    "freeBadge": "免费",
     "freeModel": "免费模型",
     "freeModelDescription": "不会扣除按量余额",
     "tieredPricing": "阶梯计费",
