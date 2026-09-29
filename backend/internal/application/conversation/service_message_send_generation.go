@@ -320,7 +320,7 @@ func (c *generationCall) finalizeNonStreamingOutput(output *llm.GenerateOutput, 
 		return nil
 	}
 	r := c.runner
-	if r.traceRecorder != nil && r.traceRecorder.visible() && r.traceRecorder.onEvent != nil &&
+	if r.traceRecorder != nil && r.traceRecorder.enabled() && r.traceRecorder.onEvent != nil &&
 		(output.Reasoning != nil || len(output.ServerToolCalls) > 0) {
 		c.observation.markObservable()
 	}
@@ -379,7 +379,7 @@ func (c *generationCall) handleStreamEvent(generationCtx context.Context, curren
 		}
 	}
 	if r.traceRecorder != nil && event.Reasoning != nil && event.Reasoning.Text != "" {
-		if r.traceRecorder.visible() && r.traceRecorder.onEvent != nil {
+		if r.traceRecorder.enabled() && r.traceRecorder.onEvent != nil {
 			c.observation.markObservable()
 		}
 		r.traceRecorder.appendUpstreamReasoning(event.Reasoning.Kind, event.Reasoning.Text, reasoningPayload(event.Reasoning))
@@ -391,7 +391,7 @@ func (c *generationCall) handleStreamEvent(generationCtx context.Context, curren
 		r.attemptHadSideEffect = true
 	}
 	if r.traceRecorder != nil && event.ServerToolCall != nil {
-		if r.traceRecorder.visible() && r.traceRecorder.onEvent != nil {
+		if r.traceRecorder.enabled() && r.traceRecorder.onEvent != nil {
 			c.observation.markObservable()
 		}
 		toolStatus := normalizeStreamServerToolStatus(event.ServerToolCall.Status)
@@ -417,7 +417,7 @@ func (c *generationCall) handleStreamEvent(generationCtx context.Context, curren
 		r.usage.recordCallReasoningText(thinkDelta)
 	}
 	if r.traceRecorder != nil && thinkDelta != "" {
-		if r.traceRecorder.visible() && r.traceRecorder.onEvent != nil {
+		if r.traceRecorder.enabled() && r.traceRecorder.onEvent != nil {
 			c.observation.markObservable()
 		}
 		r.traceRecorder.appendUpstreamReasoning(messageTraceThinkKindContent, thinkDelta, nil)

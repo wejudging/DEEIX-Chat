@@ -50,6 +50,7 @@ import { dispatchUserProfileUpdated } from "@/shared/auth/user-profile-events";
 import { dispatchOpenAnnouncements, getAnnouncementUnread, subscribeAnnouncementUnreadChanged } from "@/shared/events/announcement-events";
 import { useAppLocale } from "@/i18n/app-i18n-provider";
 import { APP_LOCALE_LABELS, APP_LOCALES, type AppLocale } from "@/i18n/config";
+import { FeatureGate } from "@/shared/capabilities";
 import {
   formatBillingDisplayBalanceFromUSD,
   normalizeBillingDisplayCurrency,
@@ -232,13 +233,15 @@ export function NavUser({
                   <DropdownMenuItemIcon icon={Settings} />
                   {t("settings")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={openAnnouncementsFromMenu}>
-                  <DropdownMenuItemIcon icon={Bell} />
-                  <span className="min-w-0 flex-1 truncate">{t("announcements")}</span>
-                  <span className="ml-auto flex size-4 shrink-0 items-center justify-center">
-                    {hasUnreadAnnouncement ? <span aria-hidden="true" className="size-1.5 rounded-full bg-destructive" /> : null}
-                  </span>
-                </DropdownMenuItem>
+                <FeatureGate feature="announcements">
+                  <DropdownMenuItem onSelect={openAnnouncementsFromMenu}>
+                    <DropdownMenuItemIcon icon={Bell} />
+                    <span className="min-w-0 flex-1 truncate">{t("announcements")}</span>
+                    <span className="ml-auto flex size-4 shrink-0 items-center justify-center">
+                      {hasUnreadAnnouncement ? <span aria-hidden="true" className="size-1.5 rounded-full bg-destructive" /> : null}
+                    </span>
+                  </DropdownMenuItem>
+                </FeatureGate>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="focus:bg-accent/40 data-[state=open]:bg-accent/40">
                     <DropdownMenuItemIcon icon={Languages} />
@@ -260,10 +263,12 @@ export function NavUser({
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
-                  <DropdownMenuItemIcon icon={Banknote} />
-                  {t("topUp")}
-                </DropdownMenuItem>
+                <FeatureGate feature="billingGating">
+                  <DropdownMenuItem onSelect={navigateFromMenu("/setting/subscription")}>
+                    <DropdownMenuItemIcon icon={Banknote} />
+                    {t("topUp")}
+                  </DropdownMenuItem>
+                </FeatureGate>
                 {isAdmin ? (
                   <DropdownMenuItem onSelect={navigateFromMenu("/admin")}>
                     <DropdownMenuItemIcon icon={ShieldCheck} />

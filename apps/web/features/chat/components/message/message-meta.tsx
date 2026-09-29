@@ -399,6 +399,7 @@ export function UserMessageMeta({
 
   return (
     <MetaContainer align="end" alwaysVisible={alwaysVisible}>
+      {item.editedAt ? <EditedBadge messageRole="user" /> : null}
       <MessageTimestamp timestamp={timestamp} />
       {!readOnly ? (
         <div className="flex items-center">
@@ -530,10 +531,10 @@ function LatencyBadge({ item }: { item: ChatMetaMessage }) {
   );
 }
 
-function EditedBadge() {
+function EditedBadge({ messageRole = "assistant" }: { messageRole?: "user" | "assistant" }) {
   const t = useTranslations("chat.messages");
   const label = t("replyEditedDisclaimer");
-  const tooltip = t("replyEditedTooltip");
+  const tooltip = t(messageRole === "user" ? "userEditedTooltip" : "replyEditedTooltip");
 
   return (
     <Tooltip>
