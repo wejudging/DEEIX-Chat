@@ -5,7 +5,7 @@ import { SettingsSidebar } from "@/features/settings/components/settings-sidebar
 
 export function AppSettingsPanel({
   children,
-  basePath = "/setting",
+  basePath = "/settings",
 }: {
   children: ReactNode;
   basePath?: string;

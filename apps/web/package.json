@@ -1,7 +1,11 @@
 {
   "name": "@deeix/web",
-  "version": "0.4.4-beta.2",
+  "version": "0.4.4-beta.3",
   "private": true,
+  "sideEffects": [
+    "*.css",
+    "./instrumentation-client.ts"
+  ],
   "scripts": {
     "postinstall": "node scripts/sync-assets.mjs",
     "sync:version": "node ../../scripts/sync-version.mjs web",
@@ -18,7 +22,7 @@
     "analyze:output": "next experimental-analyze --output",
     "start": "next start",
     "typecheck": "tsc --noEmit --pretty false",
-    "test:account-plan-identity": "node --no-warnings --test features/layouts/components/navigation/account-plan-identity.test.mjs",
+    "test:account-plan-identity": "node --no-warnings --test features/shell/components/navigation/account-plan-identity.test.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm check:arch",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",

@@ -9,7 +9,7 @@ import { InputGroupButton } from "@/components/ui/input-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { resolveSmartSearchDefaultToolIDs } from "@/features/chat/model/chat-mcp-tool-defaults";
 import { cn } from "@/lib/utils";
-import type { MCPToolDTO } from "@/shared/api/mcp.types";
+import type { MCPToolDTO } from "@/shared/api/mcp-types";
 
 const DEFAULT_MCP_TOOL_SELECTION_LIMIT = 32;
 const MAX_MCP_TOOL_SELECTION_LIMIT = 128;

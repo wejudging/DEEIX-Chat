@@ -2,10 +2,11 @@ import type {
   AdminBillingPlanDTO,
   AdminModelPricingDTO,
   UpsertAdminModelPricingRequest,
-} from "@/features/admin/api/billing.types";
-import type { AdminLLMModelDTO } from "@/features/admin/api/llm.types";
-import type { PatchSettingItem, SettingItem } from "@/shared/api/settings.types";
-import { parseKindsJSON } from "@/shared/model/llm-schema";
+} from "@/features/admin/api/billing-types";
+import type { AdminLLMModelDTO } from "@/features/admin/api/llm-types";
+import type { PatchSettingItem, SettingItem } from "@/shared/api/settings-types";
+import { parseKindsJSON } from "@/entities/model";
+import { isOneOf, isRecord, parseJSON } from "@/shared/lib/type-guards";
 
 export type BillingModelPricingRow = {
   platformModelName: string;
@@ -130,6 +131,7 @@ export const PAYMENT_SETTING_KEYS = [
 ] as const;
 export type PaymentProvider = "stripe" | "epay";
 export type PaymentSettings = Record<(typeof PAYMENT_SETTING_KEYS)[number], string>;
+const isPaymentSettingKey = isOneOf(PAYMENT_SETTING_KEYS);
 
 export const PAYMENT_DEFAULTS: PaymentSettings = {
   payment_providers: "disabled",
@@ -263,7 +265,7 @@ export function parseTieredPricingJSON(raw: unknown): TieredPricingTierForm[] | 
       return null;
     }
     return parsed.tiers.map((rawTier, index) => {
-      const tier = rawTier && typeof rawTier === "object" && !Array.isArray(rawTier) ? rawTier as Record<string, unknown> : {};
+      const tier: Record<string, unknown> = isRecord(rawTier) ? rawTier : {};
       const price = (key: string) => String(parsePrice(String(tier[key] ?? "0")));
       const upToTokens = String(Math.trunc(parsePrice(String(tier.upToTokens ?? "0"))));
       return {
@@ -376,7 +378,8 @@ export function parseTimePricingJSON(raw: unknown): TimePricingFormState {
           ? period.windows
               .filter((window) => Array.isArray(window) && window.length >= 2)
               .map((window) => {
-                const [start, end] = window as unknown[];
+                const start: unknown = window[0];
+                const end: unknown = window[1];
                 return {
                   id: nextTimePricingFormID("window"),
                   start: typeof start === "string" ? start.trim() : "",
@@ -415,7 +418,7 @@ function safeJSONParse(raw: string): unknown {
     return null;
   }
   try {
-    return JSON.parse(trimmed) as unknown;
+    return parseJSON(trimmed);
   } catch {
     return null;
   }
@@ -595,10 +598,6 @@ function isPricingMode(value: unknown): value is PricingMode {
   return value === "token" || value === "call" || value === "duration" || value === "tiered";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 const DEFAULT_IMPORT_MESSAGES: ModelPricingImportMessages = {
   invalidJSON: "File content is not valid JSON",
   rootObject: "Model pricing JSON must be an object keyed by platform model name",
@@ -641,7 +640,7 @@ function parseTieredPricingImportValue(
   const rawJSON = entry.tieredPricingJSON;
   if (typeof rawJSON === "string" && rawJSON.trim()) {
     try {
-      const parsed = JSON.parse(rawJSON) as unknown;
+      const parsed: unknown = JSON.parse(rawJSON);
       if (!isValidTieredPricingConfig(parsed)) {
         errors.push(messages.invalidTieredPricing(platformModelName, "tieredPricingJSON"));
         return "";
@@ -676,7 +675,7 @@ function isValidTieredPricingConfig(value: unknown): boolean {
 
 function parseTieredPricingExportValue(raw: string): unknown {
   try {
-    const parsed = JSON.parse(raw || "{}") as unknown;
+    const parsed: unknown = JSON.parse(raw || "{}");
     return isRecord(parsed) ? parsed : {};
   } catch {
     return {};
@@ -931,8 +930,8 @@ export function parseIntValue(value: string): number {
 export function flattenPaymentSettings(items: SettingItem[]): PaymentSettings {
   const next = { ...PAYMENT_DEFAULTS };
   for (const item of items) {
-    if ((PAYMENT_SETTING_KEYS as readonly string[]).includes(item.key)) {
-      next[item.key as keyof PaymentSettings] = item.value;
+    if (isPaymentSettingKey(item.key)) {
+      next[item.key] = item.value;
     }
   }
   return next;
@@ -959,11 +958,11 @@ export function paymentProviderSetting(providers: PaymentProvider[]): string {
 
 export function parseEPayTypesJSON(value: string): boolean {
   try {
-    const parsed = JSON.parse(value) as Array<{ name?: unknown; type?: unknown }>;
+    const parsed: unknown = JSON.parse(value);
     return (
       Array.isArray(parsed) &&
       parsed.length > 0 &&
-      parsed.every((item) => typeof item.name === "string" && item.name.trim() && typeof item.type === "string" && item.type.trim())
+      parsed.every((item) => isRecord(item) && typeof item.name === "string" && item.name.trim() && typeof item.type === "string" && item.type.trim())
     );
   } catch {
     return false;

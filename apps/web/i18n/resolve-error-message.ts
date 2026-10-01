@@ -3,6 +3,7 @@ import zhErrors from "@/i18n/messages/zh-CN/errors.json";
 import { DEFAULT_LOCALE, LOCALE_COOKIE_NAME, normalizeAppLocale, resolveBrowserLocale, type AppLocale } from "@/i18n/config";
 import { disabledFeatureOf } from "@deeix/core";
 import { ApiError } from "@/shared/api/http-client";
+import { isRecord } from "@/shared/lib/type-guards";
 
 const ERROR_MESSAGES: Record<AppLocale, unknown> = {
   "en-US": enErrors,
@@ -138,6 +139,8 @@ const SETTINGS_FIELD_LABELS: Record<AppLocale, Record<string, string>> = {
     "chat:default_system_prompt": "Global default system prompt",
     "chat:model_option_denied_paths": "Model option denylist",
     "chat:model_option_policy_mode": "Model option policy",
+    "desktop:download_enabled": "Desktop download entry",
+    "desktop:download_url": "Download URL",
     "file:embedding_enabled": "Embedding",
     "file:full_context_limit_enabled": "Full-text injection limits",
     "file:file_full_context_max_bytes": "Full-text size limit",
@@ -186,6 +189,8 @@ const SETTINGS_FIELD_LABELS: Record<AppLocale, Record<string, string>> = {
     "chat:default_system_prompt": "全局默认系统提示词",
     "chat:model_option_denied_paths": "模型参数黑名单",
     "chat:model_option_policy_mode": "模型参数透传策略",
+    "desktop:download_enabled": "桌面端下载入口",
+    "desktop:download_url": "下载地址",
     "file:embedding_enabled": "向量服务",
     "file:full_context_limit_enabled": "全文注入限制",
     "file:file_full_context_max_bytes": "全文大小上限",
@@ -227,10 +232,10 @@ function readClientLocale(): AppLocale {
 function lookupErrorMessage(locale: AppLocale, errorCode: string): string | undefined {
   let current: unknown = ERROR_MESSAGES[locale];
   for (const segment of toErrorMessagePath(errorCode)) {
-    if (!current || typeof current !== "object" || !Object.hasOwn(current, segment)) {
+    if (!isRecord(current) || !Object.hasOwn(current, segment)) {
       return undefined;
     }
-    current = (current as Record<string, unknown>)[segment];
+    current = current[segment];
   }
   return typeof current === "string" ? current : undefined;
 }
@@ -368,6 +373,8 @@ function resolveSettingsValidationMessage(error: ApiError, locale: AppLocale): s
         return `${displayLabel}必须是受信任的 HTTP 地址。`;
       case "local_path":
         return `${displayLabel}必须是站内路径，例如 /chat。`;
+      case "download_url":
+        return `${displayLabel}必须是以 http:// 或 https:// 开头的完整网址，且不能包含账号密码。`;
       case "json_object":
         return `${displayLabel}必须是 JSON 对象。`;
       case "json_array":
@@ -456,6 +463,8 @@ function resolveSettingsValidationMessage(error: ApiError, locale: AppLocale): s
       return `${displayLabel} must be a trusted HTTP endpoint.`;
     case "local_path":
       return `${displayLabel} must be a local path, such as /chat.`;
+    case "download_url":
+      return `${displayLabel} must be a full http:// or https:// URL without a username or password.`;
     case "json_object":
       return `${displayLabel} must be a JSON object.`;
     case "json_array":

@@ -50,14 +50,23 @@ import {
   type TieredPricingTierForm,
 } from "@/features/admin/model/billing-settings";
 import type { PermissionGroup } from "@/features/admin/api/permission-groups";
+import { isRecord, parseJSON, type UnknownRecord } from "@/shared/lib/type-guards";
 
-type PricingJSONValue = Record<string, unknown>;
+const TIME_PRICING_WEEKDAY_KEYS = [
+  "modelPricing.timePricingWeekday0",
+  "modelPricing.timePricingWeekday1",
+  "modelPricing.timePricingWeekday2",
+  "modelPricing.timePricingWeekday3",
+  "modelPricing.timePricingWeekday4",
+  "modelPricing.timePricingWeekday5",
+  "modelPricing.timePricingWeekday6",
+] as const;
 
 function timePricingFormToJSONValue(form: TimePricingFormState): unknown | null {
   if (form.periods.length === 0 && form.campaigns.length === 0) {
     return null;
   }
-  return JSON.parse(stringifyTimePricing(form)) as unknown;
+  return parseJSON(stringifyTimePricing(form));
 }
 
 function pricingFormToJSON(form: PricingFormState): string {
@@ -75,13 +84,13 @@ function pricingFormToJSON(form: PricingFormState): string {
     outputUSDPerMTokens: pricingMode === "token" ? parsePrice(form.output) : 0,
     callUSDPerCall: pricingMode === "call" ? parsePrice(form.call) : 0,
     durationUSDPerSecond: pricingMode === "duration" ? parsePrice(form.duration) : 0,
-    ...(pricingMode === "tiered" ? { tieredPricing: JSON.parse(stringifyTieredPricing(form.tieredTiers)) as unknown } : {}),
+    ...(pricingMode === "tiered" ? { tieredPricing: parseJSON(stringifyTieredPricing(form.tieredTiers)) } : {}),
     ...(timePricing ? { timePricing } : {}),
   };
   return JSON.stringify(payload, null, 2);
 }
 
-function readPricingNumber(payload: PricingJSONValue, key: string): string {
+function readPricingNumber(payload: UnknownRecord, key: string): string {
   const value = payload[key];
   if (value === undefined || value === null || value === "") {
     return "0";
@@ -100,11 +109,11 @@ function pricingFormFromJSON(
   durationPricingEnabled: boolean,
   messages: { root: string; model: string; mode: string; durationVideoOnly: string; tiered: string; timePricing: string },
 ): PricingFormState {
-  const parsed = JSON.parse(raw) as unknown;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  // Plain JSON.parse on purpose: a syntax error must propagate to the caller's error toast.
+  const payload: unknown = JSON.parse(raw);
+  if (!isRecord(payload)) {
     throw new Error(messages.root);
   }
-  const payload = parsed as PricingJSONValue;
   const platformModelName = typeof payload.platformModelName === "string" ? payload.platformModelName.trim() : current.platformModelName;
   if (platformModelName !== current.platformModelName) {
     throw new Error(messages.model);
@@ -698,7 +707,7 @@ export function PricingBillingDialog({
                                       aria-pressed={selected}
                                       onClick={() => toggleTimePricingWeekday(periodIndex, weekday)}
                                     >
-                                      {t(`modelPricing.timePricingWeekday${weekday}` as "modelPricing.timePricingWeekday0")}
+                                      {t(TIME_PRICING_WEEKDAY_KEYS[weekday] ?? TIME_PRICING_WEEKDAY_KEYS[0])}
                                     </Button>
                                   );
                                 })}

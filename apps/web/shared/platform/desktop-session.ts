@@ -3,7 +3,7 @@
 // Desktop session bootstrap: connects the shared session snapshot and the API
 // client to the Tauri shell. No-op in browsers.
 
-import type { LoginData } from "@/shared/api/auth.types";
+import type { LoginData } from "@/shared/api/auth-types";
 import { registerRuntimeApiBaseURLResolver } from "@/shared/api/http-client";
 import { registerSessionClearedHandler, writeSessionSnapshot } from "@/shared/auth/session";
 import { isDesktopApp } from "@/shared/platform";
@@ -35,6 +35,18 @@ export function initializeDesktopSession(): Promise<ServerInfo | null> {
     return loadServer();
   })();
   return initialized;
+}
+
+/**
+ * Resolve once requests can be addressed: true right away in browsers; on
+ * desktop true once this tab is bound to a server, false while it shows the
+ * setup screen. Rejects when the bound server cannot be resolved.
+ */
+export async function waitForApiServer(): Promise<boolean> {
+  if (!isDesktopApp()) {
+    return true;
+  }
+  return (await initializeDesktopSession()) !== null;
 }
 
 /**

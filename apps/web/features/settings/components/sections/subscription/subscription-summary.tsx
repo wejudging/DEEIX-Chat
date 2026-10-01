@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type * as React from "react";
 import { BadgeCheck, Banknote } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -10,8 +10,8 @@ import {
   formatMediumDate,
   formatPlanCredit,
 } from "@/features/settings/model/subscription-format";
-import type { BillingOverviewData } from "@/shared/api/billing.types";
-import type { BillingDisplayOptions } from "@/shared/lib/billing-display";
+import type { BillingOverviewData } from "@/shared/api/billing-types";
+import type { BillingDisplayOptions } from "@/entities/billing";
 
 type BillingMode = "period" | "usage" | "self";
 type BillingOverview = BillingOverviewData["overview"];
