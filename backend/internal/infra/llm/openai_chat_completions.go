@@ -66,6 +66,14 @@ func buildChatCompletionsRequestBody(
 			"type": thinkingType,
 		}
 	}
+	// Qwen 等 OpenAI 兼容上游的思考开关与预算是顶层扁平字段；通用透传会把这两个名字当作其他协议的
+	// 归一化别名跳过，因此在 Chat Completions 上显式下发。
+	if enabled, ok := modelParamBoolValue(input.Options, "enable_thinking"); ok {
+		payload["enable_thinking"] = enabled
+	}
+	if budget, ok := modelParamIntValue(input.Options, "thinking_budget"); ok && budget >= 0 {
+		payload["thinking_budget"] = budget
+	}
 	if maxTokens := modelParamInt(input.Options, "max_completion_tokens"); maxTokens > 0 {
 		payload["max_completion_tokens"] = maxTokens
 	} else if maxTokens := modelParamInt(input.Options, "max_output_tokens"); maxTokens > 0 {
@@ -243,7 +251,27 @@ func buildChatCompletionsContent(msg portllm.Message, promptCache *openAIPromptC
 			}
 		}
 	}
+	if text, ok := chatCompletionsPlainText(parts); ok {
+		return text
+	}
 	return parts
+}
+
+// chatCompletionsPlainText 把纯文本且未携带缓存断点的分段合并为字符串。
+// 本轮 user 会拆成「原文」与「动态上下文」两段；不少 OpenAI 兼容上游只接受字符串 content，
+// 不需要断点时保持字符串结构，与只有单段文本时的请求形态一致。
+func chatCompletionsPlainText(parts []map[string]any) (string, bool) {
+	texts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if getString(part["type"]) != "text" {
+			return "", false
+		}
+		if _, marked := part["prompt_cache_breakpoint"]; marked {
+			return "", false
+		}
+		texts = append(texts, getString(part["text"]))
+	}
+	return strings.Join(texts, "\n\n"), true
 }
 
 func applyChatStreamEvent(

@@ -34,7 +34,9 @@ import { useChatMCPTools } from "@/features/chat/hooks/use-chat-mcp-tools";
 import { useChatUIComponents } from "@/features/chat/hooks/use-chat-ui-components";
 import { UIBlockRegistryProvider } from "@/shared/components/markdown/ui-blocks";
 import { useChatMediaAttachmentActions } from "@/features/chat/hooks/use-chat-media-attachment-actions";
+import { useChatModelControlState } from "@/features/chat/hooks/use-chat-model-control-state";
 import { useChatModelOptionState } from "@/features/chat/hooks/use-chat-model-option-state";
+import { withControlSelections } from "@/features/chat/model/chat-model-controls";
 import { useChatScreenshotPreview } from "@/features/chat/hooks/use-chat-screenshot-preview";
 import {
   resolveConversationComposerKey,
@@ -50,6 +52,9 @@ import { useChatVisualPrompt } from "@/features/chat/hooks/use-chat-visual-promp
 import { useChatConversationDefaults } from "@/features/chat/hooks/use-chat-conversation-defaults";
 import { useChatTemporaryRuntime } from "@/features/chat/hooks/use-chat-temporary-runtime";
 import { filterAvailableMCPToolIDs } from "@/features/chat/model/chat-mcp-tool-defaults";
+import type {
+  ChatRegenerateReasoningOptions,
+} from "@/features/chat/model/chat-reasoning-effort";
 import type { ChatAreaMessage, } from "@/features/chat/types/messages";
 import { useSettingsChatPreferences } from "@/features/settings";
 import { cn } from "@/lib/utils";
@@ -294,6 +299,14 @@ export function AppChatArea() {
     setSelectedPlatformModelName(platformModelName);
   }, [billingUpgradeRequired, modelOptions, setSelectedPlatformModelName]);
   const modelOptionPolicyDisabled = modelOptionPolicy?.mode?.trim() === "disabled";
+  // Regeneration runs on the composer model, so "Regenerate with…" offers that model's levels.
+  const regenerateReasoning = React.useMemo<ChatRegenerateReasoningOptions | null>(() => {
+    const capability = selectedModel?.reasoning;
+    if (!selectedModel || !capability || capability.locked) {
+      return null;
+    }
+    return { levels: capability.levels, defaultLevel: capability.default };
+  }, [selectedModel]);
   const refreshModelCatalogForComposer = React.useCallback(async () => {
     await refreshModelCatalog();
   }, [refreshModelCatalog]);
@@ -304,6 +317,15 @@ export function AppChatArea() {
     reuseModelOptions,
     refreshModelOption,
   });
+  const {
+    requestControls,
+  } = useChatModelControlState(selectedModel);
+  // Requests carry the raw options (native tools; advanced JSON for administrators) plus the model
+  // control selections, which the server resolves into the administrator's parameter patches.
+  const requestOptions = React.useMemo(
+    () => withControlSelections(modelOptionPolicyDisabled ? EMPTY_CONVERSATION_OPTIONS : options, requestControls),
+    [modelOptionPolicyDisabled, options, requestControls],
+  );
   const {
     selectedToolIDs,
     selectedSkills,
@@ -465,7 +487,7 @@ export function AppChatArea() {
     selectedKnowledgeBaseIDs,
     uiComponentIDs: effectiveUIComponentIDs,
     htmlVisualPromptEnabled: htmlVisualPrompt.enabled,
-    options: modelOptionPolicyDisabled ? EMPTY_CONVERSATION_OPTIONS : options,
+    options: requestOptions,
     draft,
     attachments,
     maxFilesPerMessage,
@@ -664,7 +686,7 @@ export function AppChatArea() {
     active: temporaryMode,
     draft,
     model: selectedPlatformModelName,
-    options: effectiveOptions,
+    options: requestOptions,
     selectedToolIDs: temporarySelectedToolIDs,
     selectedSkillIDs: temporarySelectedSkillIDs,
     selectedKnowledgeBaseIDs,
@@ -836,6 +858,7 @@ export function AppChatArea() {
                   onEditUserMessage={temporaryMode ? temporaryRuntime.onEditUserMessage : onEditUserMessage}
                   onForkMessage={temporaryMode ? undefined : onForkMessage}
                   onDeleteMessage={temporaryMode ? undefined : onDeleteMessage}
+                  regenerateReasoning={regenerateReasoning}
                   modelOptions={modelOptions}
                   selectedPlatformModelName={selectedPlatformModelName}
                   onModelChange={handleModelChange}

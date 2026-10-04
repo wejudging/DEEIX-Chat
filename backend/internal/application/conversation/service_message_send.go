@@ -31,6 +31,7 @@ const (
 
 // SendMessage 发送消息并调用上游渠道对话接口，支持多模态附件。
 func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (result *SendMessageResult, retErr error) {
+	input.Options, input.Controls = restrictUserChatOptions(input.Options, input.Controls, input.AllowRawOptions)
 	return s.sendMessageInternal(ctx, input, nil, false)
 }
 
@@ -42,6 +43,7 @@ func (s *Service) StreamMessage(
 	onDelta func(string) error,
 ) (result *SendMessageResult, retErr error) {
 	input.Cancelable = true
+	input.Options, input.Controls = restrictUserChatOptions(input.Options, input.Controls, input.AllowRawOptions)
 	return s.sendMessageInternal(ctx, input, onDelta, true)
 }
 
@@ -625,12 +627,14 @@ func (s *Service) sendMessageInternal(
 	ragFallbacks := rag.fallbacks
 	ragContextChunks := rag.chunks
 	userCtx.RAGNotice = rag.notice
-	stableFullContextAttachments := append([]AttachmentInput{}, fileContextPlan.FullAttachments...)
-	stableFullContextAttachments = append(stableFullContextAttachments, ragFallbackEvidenceAttachments(rag.retrievalFallbacks)...)
+	// 检索失败或未命中后的全文回退取决于本轮问题，只随本轮动态上下文发送；
+	// 确定性的全文文件已由 placeTurnDocuments 写入所属轮次。
+	userCtx.Files = ragFallbackEvidenceAttachments(rag.retrievalFallbacks)
 	// 检索命中的图片随本轮消息发送，但不进入稳定上下文：它随查询变化，不能参与前缀缓存指纹。
-	turnImageAttachments := append(append([]AttachmentInput{}, stableFullContextAttachments...), rag.imageEvidence...)
+	turnImageAttachments := append(append([]AttachmentInput{}, fileContextPlan.FullAttachments...), rag.imageEvidence...)
 	userCtx.Attachments = imageAttachmentsForCurrentUser(turnImageAttachments)
 	userCtx.RAGChunks = ragContextChunks
+	userCtx.UnretrievedFiles = rag.unretrieved
 	assistantMessage.KnowledgeSources = messageKnowledgeSourcesFromRAGChunks(ragContextChunks)
 	// 语义召回注入：收集异步结果（与 RAG 解耦，独立运行）。
 	// recallCh 为 nil 时（未启用语义召回或当前分支没有历史消息）直接跳过。
@@ -680,7 +684,7 @@ func (s *Service) sendMessageInternal(
 		HTMLVisualPromptEnabled: input.HTMLVisualPromptEnabled,
 		UIComponents:            uiComponents,
 		DomainMessages:          promptScope.activeMessages(),
-		StableAttachments:       stableFullContextAttachments,
+		ConversationFiles:       fileContextPlan.Attachments,
 		DynamicContext:          userCtx,
 		PreferencePrompt:        preferencePrompt,
 		SkillPrompts:            skillPrompts,
@@ -706,7 +710,7 @@ func (s *Service) sendMessageInternal(
 		tools:                  toolRuntime.definitions,
 		promptCacheSessionKey:  promptCacheSessionKey,
 		statefulContextConfig:  buildPromptContextConfigSignature(cfg),
-		statefulContextState:   buildPromptContextStateSignature(stableFullContextAttachments, prefixMemories),
+		statefulContextState:   buildPromptContextStateSignature(prefixMemories),
 		normalizedBranchReason: normalizedBranchReason,
 		attributionReferer:     attributionReferer,
 		attributionTitle:       attributionTitle,
@@ -719,6 +723,7 @@ func (s *Service) sendMessageInternal(
 		Mode:                     routeGenerationInitial,
 		TraceRecorder:            traceRecorder,
 	})
+	runState.applyReasoningEffort(plan.reasoningEffort)
 	runner.routeConfig = plan.routeConfig
 	if plan.budgetErr != nil {
 		retErr = plan.budgetErr
@@ -798,6 +803,7 @@ func (s *Service) sendMessageInternal(
 			retErr = plan.budgetErr
 			return nil, retErr
 		}
+		runState.applyReasoningEffort(plan.reasoningEffort)
 		runner.beginRouteFailover(plan.routeConfig)
 		sendSpan.SetAttributes(
 			attribute.Bool("conversation.route_failover", true),
@@ -1071,7 +1077,7 @@ func (s *Service) sendMessageInternal(
 		PlatformModelName: conversation.Model,
 		ContextConfig:     gen.statefulContextConfig,
 		ContextState:      gen.statefulContextState,
-		Messages:          buildNextStatefulPrefixMessages(fullLLMMessages, input.Content, assistantText, assistantReasoningContent),
+		Messages:          buildNextStatefulPrefixMessages(fullLLMMessages, assistantText, assistantReasoningContent),
 		Tools:             toolRuntime.definitions,
 		Options:           filteredOptions,
 	})
