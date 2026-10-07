@@ -81,7 +81,7 @@ const TEMPORARY_NOTICE_TRANSITION = {
   duration: 0.22,
   ease: [0.16, 1, 0.3, 1] as const,
 };
-const TEMPORARY_MENTION_KINDS = ["model", "tool", "skill", "prompt"] as const;
+const TEMPORARY_MENTION_KINDS = ["model", "knowledge", "tool", "skill", "prompt"] as const;
 
 type QueuedComposerMessage = {
   id: string;
@@ -459,6 +459,8 @@ function ChatInputComponent({
   } = useChatMentionMenu({
     attachments,
     availableTools,
+    // HOHAI 隐藏知识库入口（RAG 关闭），@ 菜单也不再提供知识库项。
+    knowledgeBasesDisabled: true,
     defaultFileLabel: tComposer("mention.fileFallback"),
     disabled: loading || uploading || modelLoading || modelDisabled,
     draft,
