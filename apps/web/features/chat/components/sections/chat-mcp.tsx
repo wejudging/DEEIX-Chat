@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { resolveSmartSearchDefaultToolIDs } from "@/features/chat/model/chat-mcp-tool-defaults";
 import { cn } from "@/lib/utils";
 import type { MCPToolDTO } from "@/shared/api/mcp-types";
+import { useChatPopoverAlignOffset } from "@/features/chat/hooks/use-chat-popover-align-offset";
 
 const DEFAULT_MCP_TOOL_SELECTION_LIMIT = 32;
 const MAX_MCP_TOOL_SELECTION_LIMIT = 128;

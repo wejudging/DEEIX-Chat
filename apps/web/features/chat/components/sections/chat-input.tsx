@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, CornerDownRight, Film, HatGlasses, Image, ImageOff, ImagePlus, LoaderCircle, PencilLine, TextQuote, Trash2 } from "lucide-react";
+import { Box, CircleAlert, CornerDownRight, Film, HatGlasses, Image, ImageOff, ImagePlus, LoaderCircle, PencilLine, TextQuote, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLocale, useTranslations } from "next-intl";
 import * as React from "react";
@@ -103,6 +103,7 @@ type ChatInputProps = {
   modelOptions: ChatModelOption[];
   billingDisplayCurrency: BillingDisplayCurrency;
   billingDisplayUsdToCnyRate: number | null;
+  billingEnabled: boolean;
   selectedPlatformModelName: string;
   availableTools: MCPToolDTO[];
   selectedToolIDs: number[];
@@ -257,6 +258,7 @@ function ChatInputComponent({
   modelOptions,
   billingDisplayCurrency,
   billingDisplayUsdToCnyRate,
+  billingEnabled,
   selectedPlatformModelName,
   availableTools,
   selectedToolIDs,
@@ -433,6 +435,15 @@ function ChatInputComponent({
   const isMediaMode = isMediaSubmitTask(submitTask);
   const composerModeIndicator = resolveComposerModeIndicator(submitDecision, tComposer);
   const ComposerModeIcon = composerModeIndicator?.icon;
+  // The mode a media model works in is named by the input placeholder and the parameters popover.
+  // What blocks sending is said in the same place until there are attachments to point at; after
+  // that it moves to a notice above them.
+  const blockedDescription = submitDecision.blockedReason
+    ? tComposer(`mediaMode.blockedDescriptions.${submitDecision.blockedReason}`)
+    : "";
+  const blockedNotice = submitDecision.attachmentCount > 0 ? blockedDescription : "";
+  const mediaPlaceholder = (blockedNotice ? "" : blockedDescription)
+    || (isMediaMode ? tComposer(`mediaMode.placeholders.${submitTask}`) : "");
   const showMCPToolsButton = availableTools.length > 0 && !isMediaMode;
   const showHTMLVisualPromptButton = !isMediaMode;
   const hasComposerAttachments = attachments.length > 0 || uploadingAttachments.length > 0;
@@ -742,6 +753,13 @@ function ChatInputComponent({
             </div>
           ) : null}
 
+          {blockedNotice ? (
+            <div className="flex w-full items-center gap-1.5 px-5 pt-3 text-[11px] leading-4 text-destructive">
+              <CircleAlert className="size-3.5 shrink-0" strokeWidth={1.7} />
+              <span className="min-w-0">{blockedNotice}</span>
+            </div>
+          ) : null}
+
           {hasComposerAttachments ? (
             <div className="w-full space-y-1 px-2.5 pt-1">
               {showRagWarn ? (
@@ -911,7 +929,7 @@ function ChatInputComponent({
             value={draft}
             disabled={loading}
             readOnly={speechInput.active}
-            placeholder={dropActive ? tChat("attachments.dropTitle") : speechInput.placeholder}
+            placeholder={dropActive ? tChat("attachments.dropTitle") : speechInput.active ? speechInput.placeholder : mediaPlaceholder || speechInput.placeholder}
             rows={1}
             aria-controls={showMentionMenu ? mentionMenuID : undefined}
             aria-expanded={showMentionMenu ? true : undefined}
@@ -1105,11 +1123,13 @@ function ChatInputComponent({
                 modelOptions={modelOptions}
                 billingDisplayCurrency={billingDisplayCurrency}
                 billingDisplayUsdToCnyRate={billingDisplayUsdToCnyRate}
+                billingEnabled={billingEnabled}
                 selectedPlatformModelName={selectedPlatformModelName}
                 loading={modelLoading}
                 disabled={modelDisabled}
                 onModelCatalogRefresh={onModelCatalogRefresh}
                 onModelChange={onModelChange}
+                placementPreference={isConversationMode ? "top" : "bottom"}
               />
 
               <Tooltip>
