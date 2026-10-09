@@ -364,6 +364,7 @@ export type StreamMessageEvent =
       message: string;
       errorCode?: string;
       details?: unknown;
+      requestId?: string;
       debug?: UpstreamDebugInfo;
       data?: SendMessageResult;
     };

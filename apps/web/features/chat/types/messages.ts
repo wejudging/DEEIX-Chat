@@ -117,6 +117,8 @@ export type ChatInlineAlert = {
   title: string;
   message: string;
   errorCode?: string;
+  // errorId is the server request ID of this failure; administrators look up the backend log with it.
+  errorId?: string;
   details?: UpstreamDebugInfo;
 };
 

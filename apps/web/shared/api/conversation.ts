@@ -204,6 +204,7 @@ type UnrecognizedStreamEvent = {
   message?: string;
   status?: number;
   errorCode?: string;
+  requestId?: string;
   debug?: unknown;
 };
 
@@ -221,6 +222,7 @@ function normalizeStreamEvent(rawEvent: unknown): ParsedStreamEvent {
       message: readString(rawEvent, "message"),
       status: readFiniteNumber(rawEvent, "status"),
       errorCode: readString(rawEvent, "errorCode"),
+      requestId: readString(rawEvent, "requestId"),
       debug: rawEvent.debug,
     };
   }
@@ -403,7 +405,13 @@ function handleStreamEvent(event: ParsedStreamEvent, options: ConversationStream
   }
 
   const errorDetails = event.type === "error" ? event.details : undefined;
-  throw new ApiError(event.message || "stream failed", event.status ?? responseStatus, errorDetails ?? event.debug, event.errorCode);
+  throw new ApiError(
+    event.message || "stream failed",
+    event.status ?? responseStatus,
+    errorDetails ?? event.debug,
+    event.errorCode,
+    event.requestId,
+  );
 }
 
 type ListConversationsOptions = {

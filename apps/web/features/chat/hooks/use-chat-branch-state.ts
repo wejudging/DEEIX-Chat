@@ -172,6 +172,7 @@ function mergePendingAssistantState(messages: ChatAreaMessage[], pendingExchange
           title: existingAlert?.title || pendingAlert.title,
           message: existingAlert?.message || pendingAlert.message,
           errorCode: existingAlert?.errorCode || pendingAlert.errorCode,
+          errorId: existingAlert?.errorId || pendingAlert.errorId,
           details: existingAlert?.details?.request?.body ? existingAlert.details : pendingAlert.details,
         }
       : existingAlert;
