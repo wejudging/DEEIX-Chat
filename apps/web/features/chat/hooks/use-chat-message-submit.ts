@@ -58,7 +58,11 @@ import {
   resolveErrorReason,
   resolveErrorSummary,
 } from "@/features/chat/utils/chat-runtime";
-import { getConversation } from "@/shared/api/conversation";
+import {
+  getConversation,
+  getConversationRunStatuses,
+  STREAM_INTERRUPTED_ERROR_CODE,
+} from "@/shared/api/conversation";
 import type {
   ConversationDTO,
   ConversationOptions,
@@ -66,10 +70,56 @@ import type {
   SendMessageResult,
   StreamMessageEvent,
 } from "@/shared/api/conversation-types";
-import { ApiError } from "@/shared/api/http-client";
+import { ApiError, ApiNetworkError } from "@/shared/api/http-client";
 import type { SkillSummaryDTO } from "@/shared/api/skills-types";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
 import { notifyResponseCompletion } from "@/shared/lib/browser-notifications";
+
+// 判定“发送失败”之前，先确认服务端是否已经受理这次运行。
+// 服务端把生成与 HTTP 连接解耦（客户端断开后仍会继续生成并落库），所以连接层报错不等于发送失败。
+const RUN_RECONCILE_TIMEOUT_MS = 4000;
+
+// 只要运行已被受理，本轮就不该按发送失败处理：running/pending 说明还在生成，
+// success/interrupted 说明结果（含部分输出）已经落库，两种情况都能靠刷新或续传对齐。
+const RECONCILABLE_RUN_STATUSES = new Set(["pending", "running", "success", "interrupted"]);
+
+// 传输层失败：服务端没有给出错误码，说明这次失败不是它判定的。
+function isStreamTransportFailure(error: unknown): boolean {
+  if (error instanceof ApiNetworkError) {
+    return true;
+  }
+  if (error instanceof ApiError) {
+    if (error.errorCode === STREAM_INTERRUPTED_ERROR_CODE) {
+      return true;
+    }
+    return !error.errorCode?.trim();
+  }
+  return error instanceof SyntaxError;
+}
+
+async function resolveRunAcceptedByServer(runID: string): Promise<boolean> {
+  const normalizedRunID = runID.trim();
+  if (!normalizedRunID) {
+    return false;
+  }
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), RUN_RECONCILE_TIMEOUT_MS);
+  try {
+    const token = await resolveAccessToken();
+    if (!token || controller.signal.aborted) {
+      return false;
+    }
+    const statuses = await getConversationRunStatuses(token, [normalizedRunID], controller.signal);
+    const status =
+      statuses.find((item) => item.runID.trim() === normalizedRunID)?.status.trim().toLowerCase() ?? "";
+    return RECONCILABLE_RUN_STATUSES.has(status);
+  } catch {
+    // 对账本身失败时保守处理：沿用原来的失败提示，不改变发送语义。
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 export function useChatMessageSubmit({
   conversationID,
@@ -692,10 +742,17 @@ export function useChatMessageSubmit({
         const errorDetails = resolveErrorDetails(error);
         const errorSummary = resolveErrorSummary(error, t("retryLater"));
         const errorCode = error instanceof ApiError ? error.errorCode : undefined;
+        // 连接/流被截断时服务端并没有判定失败：它可能已经受理并在继续生成，稍后落库。
+        // 这种“不确定”状态下先问服务端要结论，否则会误报发送失败，还把同一段提示词塞回输入框诱导重发。
+        const runAcceptedByServer =
+          isStreamTransportFailure(error) && clientRunID
+            ? await resolveRunAcceptedByServer(clientRunID)
+            : false;
         shouldKeepConversationLayout = true;
         const shouldRestoreAttachments =
           resetComposer &&
           restoreDraftOnFailure &&
+          !runAcceptedByServer &&
           branchRunIsVisible(
             targetBranchScope,
             clientRunID,
@@ -713,13 +770,13 @@ export function useChatMessageSubmit({
           failPendingExchange(current, {
             clientRunID,
             title: t("generationInterrupted"),
-            errorMessage,
+            errorMessage: runAcceptedByServer ? t("streamResyncing") : errorMessage,
             errorId: resolveGenerationErrorId(error),
             errorDetails,
             errorCode,
           }),
         );
-        if (errorCode !== "billing.insufficient_funds") {
+        if (!runAcceptedByServer && errorCode !== "billing.insufficient_funds") {
           toast.error(t("sendFailed"), { description: errorSummary });
         }
         if (targetConversationID) {

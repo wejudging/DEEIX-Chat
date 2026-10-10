@@ -569,5 +569,8 @@
     "upstreamUnavailable": "Couldn’t reach the provider. Check the address and protocol.",
     "modelUnavailable": "This model is unavailable. Check your custom providers or choose another model.",
     "duplicate": "This API key has already been added."
+  },
+  "stream": {
+    "interrupted": "The network connection was interrupted before the server reported a final state."
   }
 }

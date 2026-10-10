@@ -190,6 +190,10 @@ const STREAM_MESSAGE_EVENT_TYPES = [
 
 const isStreamMessageEventType = isOneOf(STREAM_MESSAGE_EVENT_TYPES);
 
+// 流在终态事件之前断开（连接被中断、尾部事件只剩半截 JSON）时使用。这个错误码只由客户端产生：
+// 服务端没有判定失败，调用方必须先与服务端对账，不能直接按“发送失败”处理。
+export const STREAM_INTERRUPTED_ERROR_CODE = "stream.interrupted";
+
 // Stream events are the server's typed contract (@deeix/api-contract); only the discriminant
 // is checked here. Trace payloads, which the UI walks deeply, are normalized field by field below.
 function isStreamMessageEvent(value: unknown): value is StreamMessageEvent {
@@ -237,6 +241,14 @@ function normalizeStreamEvent(rawEvent: unknown): ParsedStreamEvent {
   }
 
   return event;
+}
+
+function parseStreamEventOrNull(document: string): ParsedStreamEvent | null {
+  try {
+    return normalizeStreamEvent(JSON.parse(document));
+  } catch {
+    return null;
+  }
 }
 
 function streamEventSeq(event: ParsedStreamEvent): number {
@@ -1307,6 +1319,10 @@ async function readConversationStream(
       if (options.signal?.aborted) {
         throw new DOMException("Aborted", "AbortError");
       }
+      // 终态事件已经收到时，末尾的连接错误（最后一个 chunk 之后连接被重置等）不能覆盖服务端结论。
+      if (completed || moderationBlocked) {
+        break;
+      }
       throw error;
     }
 
@@ -1327,7 +1343,11 @@ async function readConversationStream(
 
   const tail = buffer.trim();
   if (tail) {
-    consumeEvent(normalizeStreamEvent(JSON.parse(tail)));
+    // 尾部只剩半截事件，说明连接在事件中途断开；按“流被中断”处理，不要抛裸解析错误。
+    const tailEvent = parseStreamEventOrNull(tail);
+    if (tailEvent) {
+      consumeEvent(tailEvent);
+    }
   }
 
   return { completed, moderationBlocked };
@@ -1385,7 +1405,12 @@ async function postMessageStreamRequest(
   if (completed) {
     return completed;
   }
-  throw new ApiError("stream completed without final payload", response.status);
+  throw new ApiError(
+    "stream completed without final payload",
+    response.status,
+    undefined,
+    STREAM_INTERRUPTED_ERROR_CODE,
+  );
 }
 
 async function postConversationStream<TPayload>(

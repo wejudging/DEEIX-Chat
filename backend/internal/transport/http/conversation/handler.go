@@ -33,6 +33,18 @@ type Handler struct {
 	shutdown *lifecycle.Shutdown
 }
 
+// errStreamClientDisconnected 标记客户端在终态事件送达前断开了流式响应。
+// 这类请求不是生成失败：服务端按后台任务继续生成并落库（客户端断开不会取消生成），
+// 但客户端只会看到“发送失败”并可能重发。记录原始原因后，管理员可凭 RequestID 在日志中心回溯。
+var errStreamClientDisconnected = errors.New("stream client disconnected before terminal event")
+
+const codeStreamClientDisconnected = "stream.client_disconnected"
+
+func recordStreamClientDisconnected(c *gin.Context) {
+	response.RecordErrorCode(c, codeStreamClientDisconnected)
+	response.RecordError(c, errStreamClientDisconnected)
+}
+
 func normalizeStreamEventPayload(eventType string, payload map[string]any) map[string]any {
 	normalized := map[string]any{
 		"type": eventType,

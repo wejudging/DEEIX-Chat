@@ -569,5 +569,8 @@
     "upstreamUnavailable": "无法连接服务商，请检查地址和协议。",
     "modelUnavailable": "该模型暂不可用，请检查自定义服务商设置或更换模型。",
     "duplicate": "该 API Key 已添加。"
+  },
+  "stream": {
+    "interrupted": "网络连接已中断，未收到服务端终态。"
   }
 }

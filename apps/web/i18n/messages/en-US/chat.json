@@ -401,6 +401,7 @@
     },
     "generationInterrupted": "Generation interrupted",
     "sendFailed": "Send failed",
+    "streamResyncing": "The network connection was interrupted. Syncing the reply already generated on the server, so please do not send the prompt again.",
     "queuedParentFailed": "Queued messages canceled",
     "queuedParentFailedDescription": "The previous message did not complete successfully, so its dependent queued messages were canceled.",
     "continueGenerationPrompt": "Continue from the previous interrupted reply without repeating content that was already generated.",

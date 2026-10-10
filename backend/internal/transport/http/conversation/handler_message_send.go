@@ -398,6 +398,11 @@ func (h *Handler) StreamMessage(c *gin.Context) {
 		c.Writer.Flush()
 		return nil
 	}
+	clientGone := func() bool {
+		streamWriteMu.Lock()
+		defer streamWriteMu.Unlock()
+		return clientDisconnected
+	}
 	stopHeartbeat := startMessageStreamHeartbeat(writeStreamEvent)
 	defer stopHeartbeat()
 	flushStreamEvent := func(payload map[string]any) (bool, error) {
@@ -418,6 +423,15 @@ func (h *Handler) StreamMessage(c *gin.Context) {
 	}
 
 	defer h.service.FinishMessageGeneration(generationCtx, input.ClientRunID)
+	// 终态事件没送达客户端时补一条诊断：生成照常完成并落库，客户端却只会看到“发送失败”。
+	// 放在 defer 里才能覆盖终态事件本身写失败的情况；用户主动停止（canceled）不是故障，不计入。
+	var generationErr error
+	defer func() {
+		if !clientGone() || errors.Is(generationErr, appconversation.ErrMessageGenerationCanceled) {
+			return
+		}
+		recordStreamClientDisconnected(c)
+	}()
 	result, err := h.service.StreamMessage(generationCtx, input, func(delta string) error {
 		owned, flushErr := flushStreamEvent(map[string]any{
 			"type":  "delta",
@@ -428,6 +442,7 @@ func (h *Handler) StreamMessage(c *gin.Context) {
 		}
 		return flushErr
 	})
+	generationErr = err
 
 	if err == nil && result != nil && result.IsModerationBlocked() {
 		// 即使实时 OnEvent 路径漏发，也要确保发送终止事件。
